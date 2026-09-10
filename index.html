@@ -133,6 +133,32 @@
 
   .label-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:#fff;padding:12px;}
   .label{border:1px solid #999;border-radius:6px;padding:8px 4px;text-align:center;}
+
+  .sheet-toggle{display:flex;gap:8px;margin:4px 0 14px;}
+  .sheet-toggle button{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:500;color:var(--ink-soft);}
+  .sheet-toggle button.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+
+  .sheet-page{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px 18px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+  .sheet-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:8px;}
+  .sheet-titlewrap{display:flex;align-items:baseline;gap:8px;}
+  .sheet-no{font-family:'Barlow Condensed',sans-serif;font-size:46px;font-weight:700;line-height:1;}
+  .sheet-sub{font-size:12px;color:var(--ink-soft);}
+  .sheet-qrwrap{text-align:center;}
+  .sheet-qrwrap .cap{font-size:8.5px;color:var(--ink-soft);margin-top:2px;}
+  .sheet-info{display:flex;gap:18px;margin:8px 0 10px;font-size:12px;flex-wrap:wrap;}
+  .sheet-info span b{display:block;font-size:9.5px;color:var(--ink-soft);font-weight:500;}
+  .sheet-info span{line-height:1.4;}
+  table.sheet-table{width:100%;border-collapse:collapse;font-size:11px;}
+  table.sheet-table th{background:#eee;border:1px solid #999;padding:4px 3px;font-weight:700;font-size:10.5px;}
+  table.sheet-table td{border:1px solid #999;padding:5px 4px;text-align:center;height:22px;}
+  table.sheet-table td.name{text-align:left;font-weight:700;font-size:11px;white-space:nowrap;}
+  table.sheet-table td.blank{color:#bbb;}
+  .sheet-foot{display:flex;justify-content:space-between;margin-top:8px;font-size:9.5px;color:var(--ink-soft);}
+
+  @media print{
+    .sheet-page{page-break-after:always;border:none;box-shadow:none;border-radius:0;margin:0;padding:8mm 6mm;}
+    .sheet-page:last-child{page-break-after:auto;}
+  }
   .label .no{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
   .label .qr{margin:4px auto;}
 
@@ -330,6 +356,7 @@ function parseHash(){
   if(parts[0]==='room' && parts[1]) return {view:'room', room:parts[1]};
   if(parts[0]==='import') return {view:'import'};
   if(parts[0]==='labels') return {view:'labels'};
+  if(parts[0]==='settings') return {view:'settings'};
   return {view:'dashboard'};
 }
 window.addEventListener('hashchange', ()=>{ route = parseHash(); render(); window.scrollTo(0,0); });
@@ -366,6 +393,7 @@ function renderApp(){
   else if(route.view==='room') app.appendChild(buildDetail(route.room));
   else if(route.view==='import') app.appendChild(buildImport());
   else if(route.view==='labels') app.appendChild(buildLabels());
+  else if(route.view==='settings') app.appendChild(buildSettings());
   app.appendChild(buildFabNav());
 }
 function render(){ renderApp(); }
@@ -589,6 +617,8 @@ async function toggleConfirm(no, idx, kind){
   const it = room.items[idx];
   if(kind==='vendor'){
     if(it.vd){
+      const ok = await confirmDialog(`「業者確認（${it.vd} ${it.vn||''}）」を取り消しますか？`);
+      if(!ok) return;
       it.vd=null; it.vn=null;
     } else {
       const name = await pickName(SITE.vendors, '業者を選択');
@@ -597,6 +627,8 @@ async function toggleConfirm(no, idx, kind){
     }
   } else {
     if(it.sd){
+      const ok = await confirmDialog(`「職員確認（${it.sd} ${it.sn||''}）」を取り消しますか？`);
+      if(!ok) return;
       it.sd=null; it.sn=null;
     } else {
       const name = await pickName(SITE.staff, '確認職員を選択');
@@ -607,6 +639,24 @@ async function toggleConfirm(no, idx, kind){
   await saveRoom(no);
   render();
   showToast('更新しました');
+}
+
+/* 簡易確認ダイアログ（はい/キャンセル） */
+function confirmDialog(message){
+  return new Promise(resolve=>{
+    const overlay = el(`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:360px;text-align:center;">
+        <div style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:16px;">${escapeHtml(message)}</div>
+        <div style="display:flex;gap:8px;">
+          <button id="cfCancel" style="flex:1;border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:10px;font-size:13px;color:var(--ink-soft);">キャンセル</button>
+          <button id="cfOk" style="flex:1;border:none;background:var(--red);color:#fff;border-radius:8px;padding:10px;font-size:13px;font-weight:700;">取り消す</button>
+        </div>
+      </div>
+    </div>`);
+    overlay.querySelector('#cfOk').onclick = ()=>{ document.body.removeChild(overlay); resolve(true); };
+    overlay.querySelector('#cfCancel').onclick = ()=>{ document.body.removeChild(overlay); resolve(false); };
+    document.body.appendChild(overlay);
+  });
 }
 
 /* 簡易ピッカー（モーダル） */
@@ -671,6 +721,7 @@ function buildImport(){
 
     <div style="margin-top:24px;">
       <button class="panel-btn orange" id="btnExportCsv">現在のマスタをCSVで書き出す</button>
+      <button class="panel-btn" id="btnExportProgress" style="margin-left:8px;">進捗状況を一括出力（CSV）</button>
     </div>
   </div>`);
 
@@ -682,6 +733,111 @@ function buildImport(){
     importRows(parsed, panel.querySelector('#importLog'));
   };
   panel.querySelector('#btnExportCsv').onclick = exportCsv;
+  panel.querySelector('#btnExportProgress').onclick = exportProgressCsv;
+
+  holder.appendChild(panel);
+  return holder;
+}
+
+function exportProgressCsv(){
+  const header = ['号室','棟','フロア','メニュープラン','カラーセレクト','オプション','完了数','項目数','進捗率','ステータス'];
+  ITEMS.forEach((name,i)=>{
+    header.push(`${i+1}.${name}_業者日付`, `${i+1}.${name}_業者確認者`, `${i+1}.${name}_職員日付`, `${i+1}.${name}_職員確認者`);
+  });
+  const rows = [header];
+  MASTER.slice().sort((a,b)=>a.no-b.no).forEach(m=>{
+    const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
+    const s = roomStatus(m.no);
+    const pct = s.total ? Math.round(s.done/s.total*100) : 0;
+    const statusLabel = s.state==='done' ? '完了' : (s.state==='partial' ? '一部完了' : '未着手');
+    const row = [m.no, m.building||'', m.floor, room.plan, room.color, room.opt, s.done, s.total, pct+'%', statusLabel];
+    room.items.forEach(it=>{ row.push(it.vd||'', it.vn||'', it.sd||'', it.sn||''); });
+    rows.push(row);
+  });
+  const csv = Papa.unparse(rows);
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `進捗状況_${SITE.name}_${todayStr().replace('/','-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('進捗状況を出力しました');
+}
+
+/* =========================================================
+   レンダリング — 設定（職員・業者マスター管理）
+   ========================================================= */
+function buildSettings(){
+  const holder = document.createElement('div');
+  const panel = el(`<div class="panel">
+    <h2>設定</h2>
+    <p class="desc">現場名や、業者確認・職員確認の際に選択できる名前のマスターを管理します。ここで登録した名前が、号室詳細画面の確認者選択に反映されます。</p>
+
+    <div class="info-field full" style="margin-bottom:18px;max-width:360px;">
+      <label>現場名</label>
+      <input id="siteName" value="${escapeHtml(SITE.name)}">
+    </div>
+
+    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:18px 0 6px;">職員（確認者）マスター</h3>
+    <div id="staffChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="newStaff" placeholder="職員名を追加（例：椎名）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <button class="panel-btn" id="btnAddStaff">追加</button>
+    </div>
+
+    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:22px 0 6px;">業者マスター</h3>
+    <div id="vendorChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="newVendor" placeholder="業者名を追加（例：〇〇クロス）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <button class="panel-btn" id="btnAddVendor">追加</button>
+    </div>
+  </div>`);
+
+  function chip(name, onRemove){
+    const c = el(`<span style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:20px;padding:6px 8px 6px 14px;font-size:13px;background:#fbfaf7;">${escapeHtml(name)}<button style="border:none;background:var(--red-bg);color:var(--red);width:18px;height:18px;border-radius:50%;font-size:11px;line-height:1;">×</button></span>`);
+    c.querySelector('button').onclick = onRemove;
+    return c;
+  }
+
+  function renderChips(){
+    const sBox = panel.querySelector('#staffChips'); sBox.innerHTML='';
+    SITE.staff.forEach(n=>{
+      sBox.appendChild(chip(n, async ()=>{
+        SITE.staff = SITE.staff.filter(x=>x!==n);
+        await saveSite(); renderChips(); showToast('削除しました');
+      }));
+    });
+    const vBox = panel.querySelector('#vendorChips'); vBox.innerHTML='';
+    SITE.vendors.forEach(n=>{
+      vBox.appendChild(chip(n, async ()=>{
+        SITE.vendors = SITE.vendors.filter(x=>x!==n);
+        await saveSite(); renderChips(); showToast('削除しました');
+      }));
+    });
+  }
+  renderChips();
+
+  panel.querySelector('#siteName').addEventListener('change', async (e)=>{
+    SITE.name = e.target.value.trim() || SITE.name;
+    await saveSite();
+    showToast('保存しました');
+  });
+  panel.querySelector('#btnAddStaff').onclick = async ()=>{
+    const inp = panel.querySelector('#newStaff');
+    const v = inp.value.trim();
+    if(!v) return;
+    if(!SITE.staff.includes(v)) SITE.staff.push(v);
+    inp.value='';
+    await saveSite(); renderChips(); showToast('追加しました');
+  };
+  panel.querySelector('#btnAddVendor').onclick = async ()=>{
+    const inp = panel.querySelector('#newVendor');
+    const v = inp.value.trim();
+    if(!v) return;
+    if(!SITE.vendors.includes(v)) SITE.vendors.push(v);
+    inp.value='';
+    await saveSite(); renderChips(); showToast('追加しました');
+  };
 
   holder.appendChild(panel);
   return holder;
@@ -756,8 +912,10 @@ function exportCsv(){
 }
 
 /* =========================================================
-   レンダリング — 印刷用QRラベルシート
+   レンダリング — 印刷用（掲示用チェックシート / QRラベル）
    ========================================================= */
+let printMode = 'sheet'; // 'sheet'=掲示用チェックシート（A4）／ 'label'=QRラベル（小・シール用）
+
 function buildLabels(){
   const holder = document.createElement('div');
   const scoped = (buildingFilter==='all' ? MASTER : MASTER.filter(m=>m.building===buildingFilter))
@@ -765,24 +923,75 @@ function buildLabels(){
     .sort((a,b)=>a.no-b.no);
   const scopeLabel = (buildingFilter!=='all' || floorFilter!=='all')
     ? `（絞り込み中：${buildingFilter==='all'?'全棟':buildingFilter} / ${floorFilter==='all'?'全フロア':floorFilter}）` : '';
+
   const panel = el(`<div class="panel">
-    <h2 class="no-print">QRラベル一括印刷</h2>
-    <p class="desc no-print">全${scoped.length}室分のQRラベルをまとめて表示します${scopeLabel}。上部の棟・フロアの絞り込みで印刷範囲を変えられます。ブラウザの印刷機能でシール用紙に印刷し、各居室の入口に貼付してください。紙のチェックシート掲示を代替できます。</p>
+    <h2 class="no-print">掲示・印刷</h2>
+    <p class="desc no-print">全${scoped.length}室分${scopeLabel}。上部の棟・フロアの絞り込みで印刷範囲を変えられます。</p>
+    <div class="sheet-toggle no-print">
+      <button data-m="sheet" class="${printMode==='sheet'?'active':''}">掲示用チェックシート（A4・1室1枚）</button>
+      <button data-m="label" class="${printMode==='label'?'active':''}">QRラベル（小・シール用）</button>
+    </div>
     <button class="panel-btn no-print" onclick="window.print()">🖨 印刷する</button>
-    <div class="label-sheet" id="labelSheet" style="margin-top:16px;"></div>
+    <div id="printArea" style="margin-top:16px;"></div>
   </div>`);
-  holder.appendChild(panel);
-  const sheet = panel.querySelector('#labelSheet');
-  scoped.forEach(m=>{
-    const box = el(`<div class="label"><div class="no">${m.no}</div><div class="qr" id="lbl-${m.no}"></div><div style="font-size:9px;color:#666;">${m.building||''} ${SITE.name}</div></div>`);
-    sheet.appendChild(box);
+  panel.querySelectorAll('.sheet-toggle button').forEach(b=>{
+    b.onclick = ()=>{ printMode = b.dataset.m; render(); };
   });
-  setTimeout(()=>{
+  holder.appendChild(panel);
+  const area = panel.querySelector('#printArea');
+
+  if(printMode==='label'){
+    area.className = 'label-sheet';
     scoped.forEach(m=>{
-      const box = document.getElementById('lbl-'+m.no);
-      if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:70, height:70});
+      const box = el(`<div class="label"><div class="no">${m.no}</div><div class="qr" id="lbl-${m.no}"></div><div style="font-size:9px;color:#666;">${m.building||''} ${SITE.name}</div></div>`);
+      area.appendChild(box);
     });
-  }, 30);
+    setTimeout(()=>{
+      scoped.forEach(m=>{
+        const box = document.getElementById('lbl-'+m.no);
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:70, height:70});
+      });
+    }, 30);
+  } else {
+    scoped.forEach(m=>{
+      const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
+      const rowsHtml = ITEMS.map((name, idx)=>{
+        const it = room.items[idx] || {};
+        const vendorCell = it.vd ? `${it.vd}<br>${it.vn||''}` : '';
+        const staffCell = it.sd ? `${it.sd}<br>${it.sn||''}` : '';
+        return `<tr>
+          <td class="name">${idx+1}. ${name}</td>
+          <td class="${it.vd?'':'blank'}">${vendorCell}</td>
+          <td class="${it.sd?'':'blank'}">${staffCell}</td>
+        </tr>`;
+      }).join('');
+      const page = el(`<div class="sheet-page">
+        <div class="sheet-top">
+          <div>
+            <div class="sheet-titlewrap"><span class="sheet-no">${m.no}</span><span class="sheet-sub">号室 ／ ${m.building?m.building+' ':''}${m.floor}</span></div>
+          </div>
+          <div class="sheet-qrwrap"><div id="sheetqr-${m.no}"></div><div class="cap">スキャンでWEB版へ</div></div>
+        </div>
+        <div class="sheet-info">
+          <span><b>メニュープラン</b>${escapeHtml(room.plan)}</span>
+          <span><b>カラーセレクト</b>${escapeHtml(room.color)}</span>
+          <span><b>オプション</b>${escapeHtml(room.opt)||'－'}</span>
+        </div>
+        <table class="sheet-table">
+          <thead><tr><th style="width:38%;">確認事項</th><th>業者確認（日付／確認者）</th><th>職員確認（日付／確認者）</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="sheet-foot"><span>${SITE.name}</span><span>印刷日：${todayStr()}</span></div>
+      </div>`);
+      area.appendChild(page);
+    });
+    setTimeout(()=>{
+      scoped.forEach(m=>{
+        const box = document.getElementById('sheetqr-'+m.no);
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:64, height:64});
+      });
+    }, 30);
+  }
   return holder;
 }
 
@@ -793,7 +1002,8 @@ function buildFabNav(){
   const nav = el(`<div class="fab-nav no-print">
     <button data-v="dashboard">一覧</button>
     <button data-v="import">取込</button>
-    <button data-v="labels">QR印刷</button>
+    <button data-v="labels">掲示・印刷</button>
+    <button data-v="settings">設定</button>
   </div>`);
   nav.querySelectorAll('button').forEach(b=>{
     if(b.dataset.v===route.view || (b.dataset.v==='dashboard' && route.view==='room')) b.classList.add('active');
