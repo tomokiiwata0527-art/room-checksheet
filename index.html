@@ -170,8 +170,8 @@
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:100;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
 
-  .fab-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:var(--surface);border:1px solid var(--line);border-radius:30px;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;gap:2px;padding:4px;z-index:30;}
-  .fab-nav button{border:none;background:none;padding:8px 14px;border-radius:24px;font-size:12px;color:var(--ink-soft);font-weight:500;}
+  .fab-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:var(--surface);border:1px solid var(--line);border-radius:30px;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;gap:2px;padding:4px;z-index:30;max-width:calc(100vw - 16px);}
+  .fab-nav button{border:none;background:none;padding:8px 10px;border-radius:24px;font-size:11.5px;color:var(--ink-soft);font-weight:500;white-space:nowrap;flex-shrink:0;}
   .fab-nav button.active{background:var(--navy);color:#fff;}
 </style>
 </head>
@@ -987,7 +987,7 @@ function buildLabels(){
       const page = el(`<div class="sheet-page">
         <div class="sheet-top">
           <div>
-            <div class="sheet-titlewrap"><span class="sheet-no">${m.no}</span><span class="sheet-sub">号室 ／ ${m.building?m.building+' ':''}${m.floor}</span></div>
+            <div class="sheet-titlewrap"><span class="sheet-no">${m.no}</span><span class="sheet-sub">号室 ／ ${m.building||''}${m.floor}</span></div>
           </div>
           <div class="sheet-qrwrap"><div id="sheetqr-${m.no}"></div><div class="cap">スキャンでWEB版へ</div></div>
         </div>
@@ -1007,7 +1007,7 @@ function buildLabels(){
     setTimeout(()=>{
       scoped.forEach(m=>{
         const box = document.getElementById('sheetqr-'+m.no);
-        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:64, height:64});
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:128, height:128});
       });
     }, 30);
   }
