@@ -200,13 +200,30 @@ let floorFilter = 'all';
 let route = {view:'dashboard', room:null};
 
 function emptyItems(){
-  return ITEMS.map(()=>({vd:null,vn:null,sd:null,sn:null}));
+  return ITEMS.map(()=>({vd:'',vn:'',sd:'',sn:''}));
+}
+
+// Firebase Realtime DatabaseはnullをキーごとDeleteするため、未チェック状態は
+// 必ず空文字列('')で保持する。壊れたデータ（旧null保存分・配列が欠けたもの）を
+// 読み込んだ場合でも、常に15項目分の配列として復元する。
+function normalizeRoomItems(raw){
+  const arr = [];
+  for(let i=0;i<ITEMS.length;i++){
+    const src = (raw && typeof raw==='object') ? raw[i] : null;
+    arr.push({
+      vd: (src && src.vd) || '',
+      vn: (src && src.vn) || '',
+      sd: (src && src.sd) || '',
+      sn: (src && src.sn) || ''
+    });
+  }
+  return arr;
 }
 
 function roomFromSeed(s){
   return {
     plan: s.plan || '', color: s.color || '', opt: s.opt || '',
-    items: ITEMS.map((n,i)=>({vd:null, vn:null, sd:null, sn:s.assign && s.assign[i] ? s.assign[i] : null}))
+    items: ITEMS.map((n,i)=>({vd:'', vn:'', sd:'', sn:s.assign && s.assign[i] ? s.assign[i] : ''}))
   };
 }
 
@@ -309,7 +326,7 @@ async function loadAll(){
   const loadedNos = new Set();
   for(const id of ids){
     const r = await Store.getRoom(id);
-    if(r){ ROOMS[id] = r; loadedNos.add(String(id)); }
+    if(r){ r.items = normalizeRoomItems(r.items); ROOMS[id] = r; loadedNos.add(String(id)); }
   }
   // マスタにあるがまだ保存されていない部屋はシード or 空データで初期化
   for(const m of MASTER){
@@ -333,8 +350,9 @@ async function saveUser(){ Store.setUser(currentUser); }
 function roomStatus(no){
   const r = ROOMS[no];
   if(!r) return {done:0,vendor:0,total:ITEMS.length,state:'none'};
+  const items = Array.isArray(r.items) ? r.items : normalizeRoomItems(r.items);
   let done=0, vendor=0;
-  r.items.forEach(it=>{ if(it.sd) done++; else if(it.vd) vendor++; });
+  items.forEach(it=>{ if(it.sd) done++; else if(it.vd) vendor++; });
   let state = 'none';
   if(done===ITEMS.length) state='done';
   else if(done>0 || vendor>0) state='partial';
@@ -526,6 +544,7 @@ function buildDetail(no){
     return holder;
   }
   const room = ROOMS[no];
+  room.items = Array.isArray(room.items) ? room.items : normalizeRoomItems(room.items);
   const s = roomStatus(no);
 
   const header = el(`<div class="detail-header">
@@ -619,7 +638,7 @@ async function toggleConfirm(no, idx, kind){
     if(it.vd){
       const ok = await confirmDialog(`「業者確認（${it.vd} ${it.vn||''}）」を取り消しますか？`);
       if(!ok) return;
-      it.vd=null; it.vn=null;
+      it.vd=''; it.vn='';
     } else {
       const name = await pickName(SITE.vendors, '業者を選択');
       if(name===null) return;
@@ -629,7 +648,7 @@ async function toggleConfirm(no, idx, kind){
     if(it.sd){
       const ok = await confirmDialog(`「職員確認（${it.sd} ${it.sn||''}）」を取り消しますか？`);
       if(!ok) return;
-      it.sd=null; it.sn=null;
+      it.sd=''; it.sn='';
     } else {
       const name = await pickName(SITE.staff, '確認職員を選択');
       if(name===null) return;
