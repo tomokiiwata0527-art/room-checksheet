@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>居室チェック管理 - 三交四日市</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase（USE_FIREBASEをtrueにして使う場合のみ有効になります。falseなら読み込まれるだけで何もしません） -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#eceae2;
+    --surface:#ffffff;
+    --ink:#1b1d1e;
+    --ink-soft:#5b5f61;
+    --line:#cdc7b8;
+    --navy:#14314f;
+    --navy-deep:#0c2038;
+    --orange:#e2711d;
+    --yellow:#f0b429;
+    --green:#2e7d46;
+    --green-bg:#e4f1e7;
+    --red:#b3261e;
+    --red-bg:#f7e3e1;
+    --grey-bg:#e2ded2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased;}
+  .num{font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+  button{font-family:inherit;cursor:pointer;}
+  a{color:inherit;}
+  ::selection{background:var(--yellow);}
+
+  /* ---- App shell ---- */
+  #app{max-width:960px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:40px;}
+
+  .topbar{background:var(--navy);color:#fff;padding:14px 16px 12px;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.18);}
+  .topbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .site-title{display:flex;flex-direction:column;line-height:1.1;}
+  .site-title .eyebrow{font-size:11px;letter-spacing:.04em;color:#9db3c9;font-weight:500;}
+  .site-title .name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:.01em;}
+  .topbar-btns{display:flex;gap:6px;}
+  .icon-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:7px;padding:7px 10px;font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  .icon-btn:active{background:rgba(255,255,255,.22);}
+
+  .progress-wrap{margin-top:12px;}
+  .progress-num{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;}
+  .progress-num .big{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;}
+  .progress-num .sub{font-size:12px;color:#b9c7d5;}
+  .progress-bar{height:8px;border-radius:5px;background:rgba(255,255,255,.16);overflow:hidden;display:flex;}
+  .progress-bar>div{height:100%;}
+  .progress-legend{display:flex;gap:14px;margin-top:8px;font-size:11px;color:#c7d3de;}
+  .progress-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  .filters{display:flex;gap:6px;overflow-x:auto;padding:10px 16px;background:var(--navy-deep);}
+  .filters::-webkit-scrollbar{display:none;}
+  .chip-filter{flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#dbe4ec;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:500;}
+  .chip-filter.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+
+  .content{padding:14px 14px 0;}
+
+  /* room grid */
+  .floor-block{margin-bottom:18px;}
+  .floor-head{display:flex;align-items:center;gap:8px;margin:0 2px 8px;}
+  .floor-head .fnum{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:700;color:var(--navy);}
+  .floor-head .fcount{font-size:11.5px;color:var(--ink-soft);}
+  .room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;}
+  .room-chip{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px 6px 8px;text-align:center;position:relative;}
+  .room-chip .no{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;line-height:1;}
+  .room-chip .stat-label{font-size:10px;margin-top:4px;font-weight:500;}
+  .room-chip .bar{height:4px;border-radius:2px;background:var(--grey-bg);margin-top:6px;overflow:hidden;}
+  .room-chip .bar>div{height:100%;}
+  .room-chip.st-none{border-color:var(--line);}
+  .room-chip.st-vendor .no{color:var(--yellow-ink,#8a5c00);}
+  .room-chip.st-partial{border-color:#e7c98a;}
+  .room-chip.st-done{border-color:var(--green);background:var(--green-bg);}
+  .room-chip .badge{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;}
+
+  .empty-state{padding:60px 20px;text-align:center;color:var(--ink-soft);}
+  .empty-state .big{font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--navy);margin-bottom:8px;}
+  .cta-btn{background:var(--orange);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;margin-top:14px;}
+
+  /* ---- Detail view ---- */
+  .detail-header{background:var(--navy);color:#fff;padding:14px 16px 18px;}
+  .back-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .back-btn{background:none;border:none;color:#cdd9e3;font-size:13px;display:flex;align-items:center;gap:4px;padding:4px 0;}
+  .detail-title{display:flex;align-items:flex-end;justify-content:space-between;}
+  .detail-title .no{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;line-height:1;}
+  .detail-title .suffix{font-size:15px;color:#b9c7d5;margin-left:4px;}
+  .detail-actions{display:flex;gap:6px;}
+
+  .info-card{background:var(--surface);margin:-10px 14px 0;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.08);padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative;z-index:2;}
+  .info-field{display:flex;flex-direction:column;gap:2px;}
+  .info-field.full{grid-column:1/-1;}
+  .info-field label{font-size:10.5px;color:var(--ink-soft);font-weight:500;}
+  .info-field input{border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13.5px;font-family:inherit;background:#fbfaf7;}
+  .info-field input:focus{outline:2px solid var(--orange);outline-offset:-1px;}
+
+  .checklist{padding:14px 14px 0;}
+  .check-row{background:var(--surface);border-radius:10px;margin-bottom:8px;padding:10px 12px;border:1px solid var(--line);}
+  .check-row .item-name{font-size:13.5px;font-weight:700;margin-bottom:8px;color:var(--ink);}
+  .confirm-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .confirm-btn{border-radius:8px;border:1.5px dashed var(--line);background:#fbfaf7;padding:8px 6px;text-align:center;}
+  .confirm-btn .k{font-size:10px;color:var(--ink-soft);font-weight:500;letter-spacing:.02em;}
+  .confirm-btn .v{font-size:12.5px;margin-top:3px;font-weight:700;color:var(--ink-soft);}
+  .confirm-btn.filled{border-style:solid;}
+  .confirm-btn.filled.vendor{border-color:var(--yellow);background:#fdf6e3;}
+  .confirm-btn.filled.vendor .v{color:#8a5c00;}
+  .confirm-btn.filled.staff{border-color:var(--green);background:var(--green-bg);}
+  .confirm-btn.filled.staff .v{color:var(--green);}
+
+  .qr-card{background:var(--surface);margin:16px 14px 0;border-radius:12px;border:1px solid var(--line);padding:16px;text-align:center;}
+  .qr-card #qrbox{display:flex;justify-content:center;margin:8px 0;}
+  .qr-card .hint{font-size:11px;color:var(--ink-soft);line-height:1.5;}
+  .qr-card .link{font-size:10.5px;color:var(--navy);word-break:break-all;margin-top:6px;}
+
+  /* ---- Import / labels views ---- */
+  .panel{padding:16px 16px 40px;}
+  .panel h2{font-family:'Barlow Condensed',sans-serif;font-size:24px;color:var(--navy);margin:6px 0 4px;}
+  .panel p.desc{font-size:13px;color:var(--ink-soft);line-height:1.7;margin-bottom:16px;}
+  .drop-zone{border:2px dashed var(--line);border-radius:12px;padding:26px 16px;text-align:center;background:var(--surface);}
+  .drop-zone input[type=file]{margin-top:10px;}
+  textarea.csv-input{width:100%;min-height:120px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:monospace;font-size:12px;margin-top:10px;}
+  .panel-btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:11px 16px;font-size:13.5px;font-weight:700;margin-top:10px;}
+  .panel-btn.orange{background:var(--orange);}
+  .import-log{margin-top:14px;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;white-space:pre-wrap;color:var(--ink-soft);}
+
+  .label-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:#fff;padding:12px;}
+  .label{border:1px solid #999;border-radius:6px;padding:8px 4px;text-align:center;}
+
+  .sheet-toggle{display:flex;gap:8px;margin:4px 0 14px;}
+  .sheet-toggle button{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:500;color:var(--ink-soft);}
+  .sheet-toggle button.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+
+  .sheet-page{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px 18px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+  .sheet-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:8px;}
+  .sheet-titlewrap{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .sheet-no{font-family:'Barlow Condensed',sans-serif;font-size:64px;font-weight:700;line-height:1;}
+  .sheet-sub{font-size:20px;color:var(--ink-soft);}
+  .sheet-qrwrap{text-align:center;}
+  .sheet-qrwrap .cap{font-size:8.5px;color:var(--ink-soft);margin-top:2px;}
+  .sheet-info{display:flex;gap:18px;margin:8px 0 10px;font-size:12px;flex-wrap:wrap;}
+  .sheet-info span b{display:block;font-size:9.5px;color:var(--ink-soft);font-weight:500;}
+  .sheet-info span{line-height:1.4;}
+  table.sheet-table{width:100%;border-collapse:collapse;font-size:11px;}
+  table.sheet-table th{background:#eee;border:1px solid #999;padding:4px 3px;font-weight:700;font-size:10.5px;}
+  table.sheet-table td{border:1px solid #999;padding:5px 4px;text-align:center;height:22px;}
+  table.sheet-table td.name{text-align:left;font-weight:700;font-size:11px;white-space:nowrap;}
+  table.sheet-table td.blank{color:#bbb;}
+  .sheet-foot{display:flex;justify-content:space-between;margin-top:8px;font-size:9.5px;color:var(--ink-soft);}
+
+  @media print{
+    .sheet-page{page-break-after:always;border:none;box-shadow:none;border-radius:0;margin:0;padding:8mm 6mm;}
+    .sheet-page:last-child{page-break-after:auto;}
+  }
+  .label .no{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
+  .label .qr{margin:4px auto;}
+
+  @media print{
+    .topbar,.filters,.no-print{display:none !important;}
+    #app{max-width:none;}
+  }
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:100;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  .fab-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:var(--surface);border:1px solid var(--line);border-radius:30px;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;gap:2px;padding:4px;z-index:30;max-width:calc(100vw - 16px);}
+  .fab-nav button{border:none;background:none;padding:8px 10px;border-radius:24px;font-size:11.5px;color:var(--ink-soft);font-weight:500;white-space:nowrap;flex-shrink:0;}
+  .fab-nav button.active{background:var(--navy);color:#fff;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   居室チェック管理 — データモデル
+   ========================================================= */
+const ITEMS = ['ALC開口・コア','SD・AWレベル','トロ詰め・パラテックス','断熱モルタル','額縁（ビス）','ｳﾚﾀﾝ厚み・範囲','UB位置・レベル','造作下地補強','住設・家具有効','オプション','クロス出来形','点検口内清掃状況','取付けｵﾌﾟｼｮﾝ','フローリング出来形','カラーセレクト'];
+
+// 京王多摩川開発B棟 実データ（カラーセレクト表より214戸）
+const SEED_ROOMS = [{"no": 301, "floor": "3F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 302, "floor": "3F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 303, "floor": "3F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 304, "floor": "3F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 305, "floor": "3F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 306, "floor": "3F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 307, "floor": "3F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 308, "floor": "3F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 309, "floor": "3F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 310, "floor": "3F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 311, "floor": "3F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 312, "floor": "3F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 313, "floor": "3F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 314, "floor": "3F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 315, "floor": "3F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 316, "floor": "3F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 317, "floor": "3F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 318, "floor": "3F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 401, "floor": "4F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 402, "floor": "4F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 403, "floor": "4F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 404, "floor": "4F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 405, "floor": "4F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 406, "floor": "4F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 407, "floor": "4F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 408, "floor": "4F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 409, "floor": "4F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 410, "floor": "4F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 411, "floor": "4F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 412, "floor": "4F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 413, "floor": "4F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 414, "floor": "4F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 415, "floor": "4F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 416, "floor": "4F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 417, "floor": "4F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 418, "floor": "4F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 419, "floor": "4F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 420, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 421, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 422, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 423, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 424, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 425, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 426, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 427, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 428, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 429, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 430, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 431, "floor": "4F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 432, "floor": "4F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 433, "floor": "4F", "building": "東棟", "plan": "F14(3LDK)", "color": "ラックス", "opt": ""}, {"no": 434, "floor": "4F", "building": "東棟", "plan": "F5(3LDK)", "color": "ラックス", "opt": ""}, {"no": 435, "floor": "4F", "building": "東棟", "plan": "F12(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 436, "floor": "4F", "building": "東棟", "plan": "F17(3LDK)", "color": "モダン", "opt": ""}, {"no": 501, "floor": "5F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 502, "floor": "5F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 503, "floor": "5F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 504, "floor": "5F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 505, "floor": "5F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 506, "floor": "5F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 507, "floor": "5F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 508, "floor": "5F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 509, "floor": "5F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 510, "floor": "5F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 511, "floor": "5F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 512, "floor": "5F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 513, "floor": "5F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 514, "floor": "5F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 515, "floor": "5F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 516, "floor": "5F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 517, "floor": "5F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 518, "floor": "5F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 519, "floor": "5F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 520, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 521, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 522, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 523, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 524, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 525, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 526, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 527, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 528, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 529, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 530, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 531, "floor": "5F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 532, "floor": "5F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 533, "floor": "5F", "building": "東棟", "plan": "F14(3LDK)", "color": "ラックス", "opt": ""}, {"no": 534, "floor": "5F", "building": "東棟", "plan": "F5(3LDK)", "color": "ラックス", "opt": ""}, {"no": 535, "floor": "5F", "building": "東棟", "plan": "F12(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 536, "floor": "5F", "building": "東棟", "plan": "F17(3LDK)", "color": "モダン", "opt": ""}, {"no": 601, "floor": "6F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 602, "floor": "6F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 603, "floor": "6F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 604, "floor": "6F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 605, "floor": "6F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 606, "floor": "6F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 607, "floor": "6F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 608, "floor": "6F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 609, "floor": "6F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 610, "floor": "6F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 611, "floor": "6F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 612, "floor": "6F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 613, "floor": "6F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 614, "floor": "6F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 615, "floor": "6F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 616, "floor": "6F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 617, "floor": "6F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 618, "floor": "6F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 619, "floor": "6F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 620, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 621, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 622, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 623, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 624, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 625, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 626, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 627, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 628, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 629, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 630, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 631, "floor": "6F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 632, "floor": "6F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 633, "floor": "6F", "building": "東棟", "plan": "F14(3LDK)", "color": "ラックス", "opt": ""}, {"no": 634, "floor": "6F", "building": "東棟", "plan": "F5(3LDK)", "color": "ラックス", "opt": ""}, {"no": 635, "floor": "6F", "building": "東棟", "plan": "F12t(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 701, "floor": "7F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 702, "floor": "7F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 703, "floor": "7F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 704, "floor": "7F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 705, "floor": "7F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 706, "floor": "7F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 707, "floor": "7F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 708, "floor": "7F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 709, "floor": "7F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 710, "floor": "7F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 711, "floor": "7F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 712, "floor": "7F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 713, "floor": "7F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 714, "floor": "7F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 715, "floor": "7F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 716, "floor": "7F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 717, "floor": "7F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 718, "floor": "7F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 719, "floor": "7F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 720, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 721, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 722, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 723, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 724, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 725, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 726, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 727, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 728, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 729, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 730, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 731, "floor": "7F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 732, "floor": "7F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 733, "floor": "7F", "building": "東棟", "plan": "F14(2LDK)", "color": "ラックス", "opt": ""}, {"no": 734, "floor": "7F", "building": "東棟", "plan": "F5t(2LDK)", "color": "ラックス", "opt": ""}, {"no": 801, "floor": "8F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 802, "floor": "8F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 803, "floor": "8F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 804, "floor": "8F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 805, "floor": "8F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 806, "floor": "8F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 807, "floor": "8F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 808, "floor": "8F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 809, "floor": "8F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 810, "floor": "8F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 811, "floor": "8F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 812, "floor": "8F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 813, "floor": "8F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 814, "floor": "8F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 815, "floor": "8F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 816, "floor": "8F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 817, "floor": "8F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 818, "floor": "8F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 819, "floor": "8F", "building": "東棟", "plan": "F14t(3LDK)", "color": "ラックス", "opt": ""}, {"no": 901, "floor": "9F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 902, "floor": "9F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 903, "floor": "9F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 904, "floor": "9F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 905, "floor": "9F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 906, "floor": "9F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 907, "floor": "9F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 908, "floor": "9F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 909, "floor": "9F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 910, "floor": "9F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 911, "floor": "9F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 912, "floor": "9F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 913, "floor": "9F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 914, "floor": "9F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 915, "floor": "9F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 916, "floor": "9F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 917, "floor": "9F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 918, "floor": "9F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 1001, "floor": "10F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 1002, "floor": "10F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1003, "floor": "10F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1004, "floor": "10F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1005, "floor": "10F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1006, "floor": "10F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 1007, "floor": "10F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1008, "floor": "10F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1009, "floor": "10F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1010, "floor": "10F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1011, "floor": "10F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 1012, "floor": "10F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1013, "floor": "10F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 1014, "floor": "10F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 1015, "floor": "10F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 1016, "floor": "10F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1017, "floor": "10F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 1018, "floor": "10F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}];
+
+const DEFAULT_STAFF = ['岩田','椎名'];
+const DEFAULT_VENDORS = ['クロス業者','フロア業者','設備業者','内装業者'];
+
+let MASTER = [];      // [{no,floor,building,plan,color,opt}]
+let ROOMS = {};        // no -> {plan,color,opt,items:[{vd,vn,sd,sn}]}
+let SITE = {name:'京王多摩川開発B棟', staff: DEFAULT_STAFF.slice(), vendors: DEFAULT_VENDORS.slice()};
+let currentUser = {name:'岩田', role:'staff'};
+let buildingFilter = 'all';
+let floorFilter = 'all';
+let route = {view:'dashboard', room:null};
+
+function emptyItems(){
+  return ITEMS.map(()=>({vd:'',vn:'',sd:'',sn:''}));
+}
+
+// Firebase Realtime DatabaseはnullをキーごとDeleteするため、未チェック状態は
+// 必ず空文字列('')で保持する。壊れたデータ（旧null保存分・配列が欠けたもの）を
+// 読み込んだ場合でも、常に15項目分の配列として復元する。
+function normalizeRoomItems(raw){
+  const arr = [];
+  for(let i=0;i<ITEMS.length;i++){
+    const src = (raw && typeof raw==='object') ? raw[i] : null;
+    arr.push({
+      vd: (src && src.vd) || '',
+      vn: (src && src.vn) || '',
+      sd: (src && src.sd) || '',
+      sn: (src && src.sn) || ''
+    });
+  }
+  return arr;
+}
+
+function roomFromSeed(s){
+  return {
+    plan: s.plan || '', color: s.color || '', opt: s.opt || '',
+    items: ITEMS.map((n,i)=>({vd:'', vn:'', sd:'', sn:s.assign && s.assign[i] ? s.assign[i] : ''}))
+  };
+}
+
+/* =========================================================
+   永続化バックエンド切り替え
+   ---------------------------------------------------------
+   1) USE_FIREBASE=false のうちは Claude.ai 内蔵の window.storage
+      （共有）でそのまま動作確認できます。
+   2) Firebase Realtime Database を作成したら、下の FIREBASE_CONFIG
+      に発行された設定値を貼り、USE_FIREBASE を true にしてください。
+      → GitHub Pages 等の外部ホスティングでは window.storage が
+        存在しないため、Firebase 未設定のままだと「この端末内だけ」
+        （localStorage）の保存になり、他の端末と共有されません。
+        本番運用前に必ず Firebase を設定してください。
+   ========================================================= */
+const USE_FIREBASE = true; // Firebase設定済み
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDvvtBu7kKxkQyk6nWehwQhqxhIjpauZHU",
+  authDomain: "room-4a654.firebaseapp.com",
+  databaseURL: "https://room-4a654-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "room-4a654",
+  storageBucket: "room-4a654.firebasestorage.app",
+  messagingSenderId: "1030032214548",
+  appId: "1:1030032214548:web:291c4209e4247114aa3501",
+  measurementId: "G-884B7G4G1P"
+};
+
+let fbDb = null;
+if(USE_FIREBASE && typeof firebase !== 'undefined'){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.database();
+  }catch(e){ console.error('Firebase初期化失敗', e); }
+}
+
+const Store = {
+  backend(){ return (USE_FIREBASE && fbDb) ? 'firebase' : (window.storage ? 'claude' : 'local'); },
+
+  async getRoom(no){
+    const b = this.backend();
+    if(b==='firebase'){ const s = await fbDb.ref('rooms/'+no).get(); return s.exists()? s.val(): null; }
+    if(b==='claude'){ try{ const r = await window.storage.get('room:'+no, true); return r? JSON.parse(r.value): null; }catch(e){ return null; } }
+    const v = localStorage.getItem('qc_room_'+no); return v? JSON.parse(v): null;
+  },
+  async setRoom(no, data){
+    const b = this.backend();
+    if(b==='firebase'){ await fbDb.ref('rooms/'+no).set(data); return; }
+    if(b==='claude'){ try{ await window.storage.set('room:'+no, JSON.stringify(data), true); }catch(e){ showToast('保存に失敗しました'); } return; }
+    localStorage.setItem('qc_room_'+no, JSON.stringify(data));
+  },
+  async listRoomIds(){
+    const b = this.backend();
+    if(b==='firebase'){ const s = await fbDb.ref('rooms').get(); return s.exists()? Object.keys(s.val()) : []; }
+    if(b==='claude'){
+      try{ const l = await window.storage.list('room:', true); return l && l.keys ? l.keys.map(k=>k.split(':')[1]) : []; }catch(e){ return []; }
+    }
+    const ids=[];
+    for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.startsWith('qc_room_')) ids.push(k.replace('qc_room_','')); }
+    return ids;
+  },
+  async getMaster(){
+    const b = this.backend();
+    if(b==='firebase'){ const s = await fbDb.ref('master_rooms').get(); return s.exists()? s.val(): null; }
+    if(b==='claude'){ try{ const r = await window.storage.get('master_rooms', true); return r? JSON.parse(r.value): null; }catch(e){ return null; } }
+    const v = localStorage.getItem('qc_master_rooms'); return v? JSON.parse(v): null;
+  },
+  async setMaster(data){
+    const b = this.backend();
+    if(b==='firebase'){ await fbDb.ref('master_rooms').set(data); return; }
+    if(b==='claude'){ try{ await window.storage.set('master_rooms', JSON.stringify(data), true); }catch(e){} return; }
+    localStorage.setItem('qc_master_rooms', JSON.stringify(data));
+  },
+  async getSite(){
+    const b = this.backend();
+    if(b==='firebase'){ const s = await fbDb.ref('site_config').get(); return s.exists()? s.val(): null; }
+    if(b==='claude'){ try{ const r = await window.storage.get('site_config', true); return r? JSON.parse(r.value): null; }catch(e){ return null; } }
+    const v = localStorage.getItem('qc_site_config'); return v? JSON.parse(v): null;
+  },
+  async setSite(data){
+    const b = this.backend();
+    if(b==='firebase'){ await fbDb.ref('site_config').set(data); return; }
+    if(b==='claude'){ try{ await window.storage.set('site_config', JSON.stringify(data), true); }catch(e){} return; }
+    localStorage.setItem('qc_site_config', JSON.stringify(data));
+  },
+  // 担当者名は端末ごと（共有しない）なので常にこの端末のlocalStorageへ
+  getUser(){ const v = localStorage.getItem('qc_current_user'); return v? JSON.parse(v): null; },
+  setUser(data){ localStorage.setItem('qc_current_user', JSON.stringify(data)); }
+};
+
+async function loadAll(){
+  MASTER = await Store.getMaster() || [];
+  if(!MASTER.length){
+    MASTER = SEED_ROOMS.map(s=>({no:s.no, floor:s.floor, building:s.building||'', plan:s.plan, color:s.color, opt:s.opt}));
+    await saveMaster();
+  }
+
+  // 棟機能を追加する前に保存されたデータ等、building が抜けている部屋を
+  // 号室から自動判定して自己修復する
+  let healed = false;
+  MASTER.forEach(m=>{
+    if(!m.building){
+      const b = inferBuilding(m.no) || (SEED_ROOMS.find(s=>String(s.no)===String(m.no))||{}).building;
+      if(b){ m.building = b; healed = true; }
+    }
+  });
+  if(healed) await saveMaster();
+
+  const site = await Store.getSite();
+  if(site) SITE = site;
+
+  const ids = await Store.listRoomIds();
+  const loadedNos = new Set();
+  for(const id of ids){
+    const r = await Store.getRoom(id);
+    if(r){ r.items = normalizeRoomItems(r.items); ROOMS[id] = r; loadedNos.add(String(id)); }
+  }
+  // マスタにあるがまだ保存されていない部屋はシード or 空データで初期化
+  for(const m of MASTER){
+    if(!loadedNos.has(String(m.no))){
+      const seed = SEED_ROOMS.find(s=>String(s.no)===String(m.no));
+      ROOMS[m.no] = seed ? roomFromSeed(seed) : {plan:m.plan||'', color:m.color||'', opt:m.opt||'', items: emptyItems()};
+    }
+  }
+  const u = Store.getUser();
+  if(u) currentUser = u;
+}
+
+// 京王多摩川開発B棟の号室体系から棟を推定（building欠損時のフォールバック）
+const EAST_ROOM_NOS = new Set([819,733,734,633,634,635,533,534,535,536,433,434,435,436]);
+function inferBuilding(no){
+  const n = Number(no);
+  if(!n) return '';
+  if(EAST_ROOM_NOS.has(n)) return '東棟';
+  const suffix = n % 100;
+  if(suffix>=19 && suffix<=32) return '北棟';
+  if(suffix>=1 && suffix<=18) return '南棟';
+  return '';
+}
+
+async function saveMaster(){ await Store.setMaster(MASTER); }
+async function saveSite(){ await Store.setSite(SITE); }
+async function saveRoom(no){ await Store.setRoom(no, ROOMS[no]); }
+async function saveUser(){ Store.setUser(currentUser); }
+
+/* =========================================================
+   ステータス判定
+   ========================================================= */
+function roomStatus(no){
+  const r = ROOMS[no];
+  if(!r) return {done:0,vendor:0,total:ITEMS.length,state:'none'};
+  const items = Array.isArray(r.items) ? r.items : normalizeRoomItems(r.items);
+  let done=0, vendor=0;
+  items.forEach(it=>{ if(it.sd) done++; else if(it.vd) vendor++; });
+  let state = 'none';
+  if(done===ITEMS.length) state='done';
+  else if(done>0 || vendor>0) state='partial';
+  return {done, vendor, total: ITEMS.length, state};
+}
+
+function overallProgress(){
+  let done=0, total=0;
+  MASTER.forEach(m=>{ const s=roomStatus(m.no); done+=s.done; total+=s.total; });
+  return {done, total};
+}
+
+/* =========================================================
+   ルーティング
+   ========================================================= */
+function parseHash(){
+  const h = location.hash.replace('#','');
+  const parts = h.split('/').filter(Boolean);
+  if(parts[0]==='room' && parts[1]) return {view:'room', room:parts[1]};
+  if(parts[0]==='import') return {view:'import'};
+  if(parts[0]==='labels') return {view:'labels'};
+  if(parts[0]==='settings') return {view:'settings'};
+  return {view:'dashboard'};
+}
+window.addEventListener('hashchange', ()=>{ route = parseHash(); render(); window.scrollTo(0,0); });
+
+function go(view, room){
+  location.hash = view==='dashboard' ? '' : (view==='room' ? '#/room/'+room : '#/'+view);
+}
+
+/* =========================================================
+   トースト
+   ========================================================= */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* =========================================================
+   レンダリング — ダッシュボード
+   ========================================================= */
+function todayStr(){
+  const d = new Date();
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function renderApp(){
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  app.appendChild(buildTopbar());
+  if(route.view==='dashboard') app.appendChild(buildDashboard());
+  else if(route.view==='room') app.appendChild(buildDetail(route.room));
+  else if(route.view==='import') app.appendChild(buildImport());
+  else if(route.view==='labels') app.appendChild(buildLabels());
+  else if(route.view==='settings') app.appendChild(buildSettings());
+  app.appendChild(buildFabNav());
+}
+function render(){ renderApp(); }
+
+function el(html){
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+}
+
+function buildTopbar(){
+  const prog = overallProgress();
+  const pct = prog.total ? Math.round(prog.done/prog.total*100) : 0;
+  const wrap = el(`<div class="topbar">
+    <div class="topbar-row">
+      <div class="site-title">
+        <div class="eyebrow">居室チェックシート・WEB版</div>
+        <div class="name">${SITE.name}</div>
+      </div>
+      <div class="topbar-btns no-print">
+        <button class="icon-btn" id="btnUser">👤 ${currentUser.name}</button>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-num">
+        <div class="big">${pct}%</div>
+        <div class="sub">${prog.done} / ${prog.total} 項目完了　（${MASTER.length}室）</div>
+      </div>
+      <div class="progress-bar">
+        <div style="width:${pct}%;background:var(--green)"></div>
+      </div>
+      <div class="progress-legend">
+        <span><span class="dot" style="background:#8a95a5"></span>未着手</span>
+        <span><span class="dot" style="background:var(--yellow)"></span>業者確認済</span>
+        <span><span class="dot" style="background:var(--green)"></span>職員承認済</span>
+      </div>
+    </div>
+  </div>`);
+  wrap.querySelector('#btnUser').onclick = openUserPicker;
+
+  const buildings = [...new Set(MASTER.map(m=>m.building).filter(Boolean))];
+  const buildingBar = el(`<div class="filters no-print" style="padding-bottom:4px;"></div>`);
+  if(buildings.length){
+    const allB = el(`<button class="chip-filter ${buildingFilter==='all'?'active':''}">全棟</button>`);
+    allB.onclick=()=>{buildingFilter='all'; floorFilter='all'; render();};
+    buildingBar.appendChild(allB);
+    buildings.forEach(b=>{
+      const c = el(`<button class="chip-filter ${buildingFilter===b?'active':''}">${b}</button>`);
+      c.onclick=()=>{buildingFilter=b; floorFilter='all'; render();};
+      buildingBar.appendChild(c);
+    });
+  }
+
+  const scoped = buildingFilter==='all' ? MASTER : MASTER.filter(m=>m.building===buildingFilter);
+  const floors = [...new Set(scoped.map(m=>m.floor))].sort((a,b)=>parseInt(a)-parseInt(b));
+  const filterBar = el(`<div class="filters no-print"></div>`);
+  const allChip = el(`<button class="chip-filter ${floorFilter==='all'?'active':''}">全フロア</button>`);
+  allChip.onclick=()=>{floorFilter='all';render();};
+  filterBar.appendChild(allChip);
+  floors.forEach(f=>{
+    const c = el(`<button class="chip-filter ${floorFilter===f?'active':''}">${f}</button>`);
+    c.onclick=()=>{floorFilter=f; render();};
+    filterBar.appendChild(c);
+  });
+  const holder = document.createElement('div');
+  holder.appendChild(wrap);
+  if(buildings.length) holder.appendChild(buildingBar);
+  holder.appendChild(filterBar);
+  return holder;
+}
+
+function buildDashboard(){
+  const holder = document.createElement('div');
+  if(!MASTER.length){
+    holder.appendChild(el(`<div class="empty-state">
+      <div class="big">部屋データがありません</div>
+      <div>CSV / Excel を取り込んで開始してください</div>
+      <button class="cta-btn" onclick="go('import')">取り込み画面へ</button>
+    </div>`));
+    return holder;
+  }
+  const content = el(`<div class="content"></div>`);
+  const scopedByBuilding = buildingFilter==='all' ? MASTER : MASTER.filter(m=>m.building===buildingFilter);
+  const floors = [...new Set(scopedByBuilding.map(m=>m.floor))].sort((a,b)=>parseInt(a)-parseInt(b));
+  const list = floorFilter==='all' ? floors : [floorFilter];
+  list.forEach(f=>{
+    const rooms = scopedByBuilding.filter(m=>m.floor===f).sort((a,b)=>a.no-b.no);
+    if(!rooms.length) return;
+    // 同じフロア表記が複数棟にまたがる場合は棟ごとに分けて表示
+    const byBuilding = {};
+    rooms.forEach(r=>{ const b=r.building||''; (byBuilding[b]=byBuilding[b]||[]).push(r); });
+    Object.keys(byBuilding).forEach(b=>{
+      const list2 = byBuilding[b];
+      const doneCount = list2.filter(r=>roomStatus(r.no).state==='done').length;
+      const label = (buildingFilter==='all' && b) ? `${f}（${b}）` : f;
+      const block = el(`<div class="floor-block">
+        <div class="floor-head"><span class="fnum">${label}</span><span class="fcount">${doneCount}/${list2.length} 室 完了</span></div>
+        <div class="room-grid"></div>
+      </div>`);
+      const grid = block.querySelector('.room-grid');
+      list2.forEach(r=>{
+        const s = roomStatus(r.no);
+        const pct = s.total ? Math.round(s.done/s.total*100) : 0;
+        let cls='st-none', barColor='#8a95a5';
+        if(s.state==='done'){cls='st-done';barColor='var(--green)';}
+        else if(s.state==='partial'){cls='st-partial';barColor='var(--yellow)';}
+        const chip = el(`<button class="room-chip ${cls}">
+            <div class="no">${r.no}</div>
+            <div class="stat-label">${s.done}/${s.total}</div>
+            <div class="bar"><div style="width:${pct}%;background:${barColor}"></div></div>
+          </button>`);
+        chip.onclick = ()=>go('room', r.no);
+        grid.appendChild(chip);
+      });
+      content.appendChild(block);
+    });
+  });
+  holder.appendChild(content);
+  return holder;
+}
+
+/* =========================================================
+   レンダリング — 部屋詳細
+   ========================================================= */
+function buildDetail(no){
+  const holder = document.createElement('div');
+  const m = MASTER.find(x=>String(x.no)===String(no));
+  if(!m || !ROOMS[no]){
+    holder.appendChild(el(`<div class="empty-state"><div class="big">${no}号室が見つかりません</div><button class="cta-btn" onclick="go('dashboard')">一覧に戻る</button></div>`));
+    return holder;
+  }
+  const room = ROOMS[no];
+  room.items = Array.isArray(room.items) ? room.items : normalizeRoomItems(room.items);
+  const s = roomStatus(no);
+
+  const header = el(`<div class="detail-header">
+    <div class="back-row">
+      <button class="back-btn" onclick="go('dashboard')">← 一覧に戻る</button>
+      <div class="detail-actions no-print">
+        <button class="icon-btn" id="btnQr">QR表示</button>
+      </div>
+    </div>
+    <div class="detail-title">
+      <div><span class="no">${no}</span><span class="suffix">号室 ／ ${m.building||''}${m.floor}</span></div>
+      <div style="font-size:12px;color:#b9c7d5;">${s.done}/${s.total} 完了</div>
+    </div>
+  </div>`);
+
+  const info = el(`<div class="info-card">
+    <div class="info-field"><label>メニュープラン</label><input id="f-plan" value="${escapeHtml(room.plan)}"></div>
+    <div class="info-field"><label>カラーセレクト</label><input id="f-color" value="${escapeHtml(room.color)}"></div>
+    <div class="info-field full"><label>オプション</label><input id="f-opt" value="${escapeHtml(room.opt)}"></div>
+  </div>`);
+  ['f-plan','f-color','f-opt'].forEach(id=>{
+    info.querySelector('#'+id).addEventListener('change', async (e)=>{
+      const map = {'f-plan':'plan','f-color':'color','f-opt':'opt'};
+      room[map[id]] = e.target.value;
+      m[map[id]] = e.target.value;
+      await saveRoom(no); await saveMaster();
+      showToast('保存しました');
+    });
+  });
+
+  const checklist = el(`<div class="checklist"></div>`);
+  ITEMS.forEach((name, idx)=>{
+    const it = room.items[idx];
+    const row = el(`<div class="check-row">
+      <div class="item-name">${idx+1}. ${name}</div>
+      <div class="confirm-pair">
+        <button class="confirm-btn vendor ${it.vd?'filled':''}" data-kind="vendor" data-idx="${idx}">
+          <div class="k">業者確認</div>
+          <div class="v">${it.vd ? it.vd+' '+(it.vn||'') : 'タップして記録'}</div>
+        </button>
+        <button class="confirm-btn staff ${it.sd?'filled':''}" data-kind="staff" data-idx="${idx}">
+          <div class="k">職員確認</div>
+          <div class="v">${it.sd ? it.sd+' '+(it.sn||'') : 'タップして記録'}</div>
+        </button>
+      </div>
+    </div>`);
+    row.querySelectorAll('.confirm-btn').forEach(btn=>{
+      btn.onclick = ()=>toggleConfirm(no, idx, btn.dataset.kind);
+    });
+    checklist.appendChild(row);
+  });
+
+  const qr = el(`<div class="qr-card" id="qrCard" style="display:none;">
+    <div style="font-family:'Barlow Condensed';font-size:20px;color:var(--navy);">${no}号室 QRラベル</div>
+    <div id="qrbox"></div>
+    <div class="hint">現地掲示用。スマホでスキャンするとこの画面に直接遷移します。<br>本番運用では公開URLでホスティングしてください。</div>
+    <div class="link" id="qrlink"></div>
+    <button class="panel-btn no-print" style="margin-top:10px;" onclick="window.print()">🖨 このラベルを印刷</button>
+  </div>`);
+
+  holder.appendChild(header);
+  holder.appendChild(info);
+  holder.appendChild(checklist);
+  holder.appendChild(qr);
+
+  header.querySelector('#btnQr').onclick = ()=>{
+    const cardEl = holder.querySelector('#qrCard');
+    const box = holder.querySelector('#qrbox');
+    const show = cardEl.style.display==='none';
+    cardEl.style.display = show ? 'block' : 'none';
+    if(show && !box.dataset.rendered){
+      const url = location.origin+location.pathname+'#/room/'+no;
+      new QRCode(box, {text:url, width:150, height:150, colorDark:'#14314f', colorLight:'#ffffff'});
+      holder.querySelector('#qrlink').textContent = url;
+      box.dataset.rendered='1';
+      cardEl.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  };
+
+  return holder;
+}
+
+function escapeHtml(s){
+  return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 掲示用チェックシートのカラーセレクト表示用の背景色
+function colorTypeBg(name){
+  const map = {
+    'ラックス': '#CFE8FB',
+    'ナチュラル': '#FFF3B0',
+    'モダン': '#D5F2D9',
+    '企画住戸': '#E0E0E0'
+  };
+  return map[(name||'').trim()] || 'transparent';
+}
+
+async function toggleConfirm(no, idx, kind){
+  const room = ROOMS[no];
+  const it = room.items[idx];
+  if(kind==='vendor'){
+    if(it.vd){
+      const ok = await confirmDialog(`「業者確認（${it.vd} ${it.vn||''}）」を取り消しますか？`);
+      if(!ok) return;
+      it.vd=''; it.vn='';
+    } else {
+      const name = await pickName(SITE.vendors, '業者を選択');
+      if(name===null) return;
+      it.vd = todayStr(); it.vn = name;
+    }
+  } else {
+    if(it.sd){
+      const ok = await confirmDialog(`「職員確認（${it.sd} ${it.sn||''}）」を取り消しますか？`);
+      if(!ok) return;
+      it.sd=''; it.sn='';
+    } else {
+      const name = await pickName(SITE.staff, '確認職員を選択');
+      if(name===null) return;
+      it.sd = todayStr(); it.sn = name;
+    }
+  }
+  await saveRoom(no);
+  render();
+  showToast('更新しました');
+}
+
+/* 簡易確認ダイアログ（はい/キャンセル） */
+function confirmDialog(message){
+  return new Promise(resolve=>{
+    const overlay = el(`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:360px;text-align:center;">
+        <div style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:16px;">${escapeHtml(message)}</div>
+        <div style="display:flex;gap:8px;">
+          <button id="cfCancel" style="flex:1;border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:10px;font-size:13px;color:var(--ink-soft);">キャンセル</button>
+          <button id="cfOk" style="flex:1;border:none;background:var(--red);color:#fff;border-radius:8px;padding:10px;font-size:13px;font-weight:700;">取り消す</button>
+        </div>
+      </div>
+    </div>`);
+    overlay.querySelector('#cfOk').onclick = ()=>{ document.body.removeChild(overlay); resolve(true); };
+    overlay.querySelector('#cfCancel').onclick = ()=>{ document.body.removeChild(overlay); resolve(false); };
+    document.body.appendChild(overlay);
+  });
+}
+
+/* 簡易ピッカー（モーダル） */
+function pickName(list, title){
+  return new Promise(resolve=>{
+    const overlay = el(`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;justify-content:center;">
+      <div style="background:#fff;border-radius:14px 14px 0 0;padding:16px;width:100%;max-width:960px;">
+        <div style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin-bottom:10px;">${title}</div>
+        <div id="pickList" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input id="pickCustom" placeholder="その他（自由入力）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+          <button class="panel-btn orange" id="pickCustomBtn">決定</button>
+        </div>
+        <button style="width:100%;margin-top:10px;background:none;border:none;color:var(--ink-soft);padding:8px;" id="pickCancel">キャンセル</button>
+      </div>
+    </div>`);
+    const plist = overlay.querySelector('#pickList');
+    list.forEach(n=>{
+      const b = el(`<button style="border:1.5px solid var(--line);border-radius:20px;padding:8px 16px;font-size:13.5px;background:#fbfaf7;">${n}</button>`);
+      b.onclick=()=>{document.body.removeChild(overlay); resolve(n);};
+      plist.appendChild(b);
+    });
+    overlay.querySelector('#pickCustomBtn').onclick=()=>{
+      const v = overlay.querySelector('#pickCustom').value.trim();
+      document.body.removeChild(overlay);
+      resolve(v || currentUser.name);
+    };
+    overlay.querySelector('#pickCancel').onclick=()=>{document.body.removeChild(overlay); resolve(null);};
+    document.body.appendChild(overlay);
+  });
+}
+
+function openUserPicker(){
+  pickName(SITE.staff, '担当者を選択').then(name=>{
+    if(name){ currentUser.name=name; saveUser(); render(); }
+  });
+}
+
+/* =========================================================
+   レンダリング — 取り込み
+   ========================================================= */
+function buildImport(){
+  const holder = document.createElement('div');
+  const panel = el(`<div class="panel">
+    <h2>部屋マスタ取り込み</h2>
+    <p class="desc">現場の全戸分（号室・メニュープラン・カラーセレクト・オプション・棟）を一括で取り込みます。既存のExcel（仕上チェック表）や、CSVをそのまま利用できます。<br>
+    CSV列順：<b>号室, フロア, メニュープラン, カラーセレクト, オプション, 棟</b>（棟は省略可。1行目はヘッダーとして無視されます）</p>
+
+    <div class="drop-zone">
+      <div>📄 Excel(.xlsx) / CSV ファイルを選択</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    </div>
+
+    <div style="margin-top:18px;">
+      <label style="font-size:12px;color:var(--ink-soft);">またはCSVを直接貼り付け：</label>
+      <textarea class="csv-input" id="csvText" placeholder="901,9F,基本,リュクスホワイト,無し
+902,9F,メニュー2,セピアブラウン,有り"></textarea>
+      <button class="panel-btn" id="btnParseCsv">この内容を取り込む</button>
+    </div>
+
+    <div class="import-log" id="importLog" style="display:none;"></div>
+
+    <div style="margin-top:24px;">
+      <button class="panel-btn orange" id="btnExportCsv">現在のマスタをCSVで書き出す</button>
+      <button class="panel-btn" id="btnExportProgress" style="margin-left:8px;">進捗状況を一括出力（CSV）</button>
+    </div>
+  </div>`);
+
+  panel.querySelector('#fileInput').addEventListener('change', handleFileImport);
+  panel.querySelector('#btnParseCsv').onclick = ()=>{
+    const text = panel.querySelector('#csvText').value.trim();
+    if(!text) return;
+    const parsed = Papa.parse(text.trim()).data.filter(r=>r.length>1 && r[0]);
+    importRows(parsed, panel.querySelector('#importLog'));
+  };
+  panel.querySelector('#btnExportCsv').onclick = exportCsv;
+  panel.querySelector('#btnExportProgress').onclick = exportProgressCsv;
+
+  holder.appendChild(panel);
+  return holder;
+}
+
+function exportProgressCsv(){
+  const header = ['号室','棟','フロア','メニュープラン','カラーセレクト','オプション','完了数','項目数','進捗率','ステータス'];
+  ITEMS.forEach((name,i)=>{
+    header.push(`${i+1}.${name}_業者日付`, `${i+1}.${name}_業者確認者`, `${i+1}.${name}_職員日付`, `${i+1}.${name}_職員確認者`);
+  });
+  const rows = [header];
+  MASTER.slice().sort((a,b)=>a.no-b.no).forEach(m=>{
+    const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
+    const s = roomStatus(m.no);
+    const pct = s.total ? Math.round(s.done/s.total*100) : 0;
+    const statusLabel = s.state==='done' ? '完了' : (s.state==='partial' ? '一部完了' : '未着手');
+    const row = [m.no, m.building||'', m.floor, room.plan, room.color, room.opt, s.done, s.total, pct+'%', statusLabel];
+    room.items.forEach(it=>{ row.push(it.vd||'', it.vn||'', it.sd||'', it.sn||''); });
+    rows.push(row);
+  });
+  const csv = Papa.unparse(rows);
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `進捗状況_${SITE.name}_${todayStr().replace('/','-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('進捗状況を出力しました');
+}
+
+/* =========================================================
+   レンダリング — 設定（職員・業者マスター管理）
+   ========================================================= */
+function buildSettings(){
+  const holder = document.createElement('div');
+  const panel = el(`<div class="panel">
+    <h2>設定</h2>
+    <p class="desc">現場名や、業者確認・職員確認の際に選択できる名前のマスターを管理します。ここで登録した名前が、号室詳細画面の確認者選択に反映されます。</p>
+
+    <div class="info-field full" style="margin-bottom:18px;max-width:360px;">
+      <label>現場名</label>
+      <input id="siteName" value="${escapeHtml(SITE.name)}">
+    </div>
+
+    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:18px 0 6px;">職員（確認者）マスター</h3>
+    <div id="staffChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="newStaff" placeholder="職員名を追加（例：椎名）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <button class="panel-btn" id="btnAddStaff">追加</button>
+    </div>
+
+    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:22px 0 6px;">業者マスター</h3>
+    <div id="vendorChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="newVendor" placeholder="業者名を追加（例：〇〇クロス）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <button class="panel-btn" id="btnAddVendor">追加</button>
+    </div>
+  </div>`);
+
+  function chip(name, onRemove){
+    const c = el(`<span style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:20px;padding:6px 8px 6px 14px;font-size:13px;background:#fbfaf7;">${escapeHtml(name)}<button style="border:none;background:var(--red-bg);color:var(--red);width:18px;height:18px;border-radius:50%;font-size:11px;line-height:1;">×</button></span>`);
+    c.querySelector('button').onclick = onRemove;
+    return c;
+  }
+
+  function renderChips(){
+    const sBox = panel.querySelector('#staffChips'); sBox.innerHTML='';
+    SITE.staff.forEach(n=>{
+      sBox.appendChild(chip(n, async ()=>{
+        SITE.staff = SITE.staff.filter(x=>x!==n);
+        await saveSite(); renderChips(); showToast('削除しました');
+      }));
+    });
+    const vBox = panel.querySelector('#vendorChips'); vBox.innerHTML='';
+    SITE.vendors.forEach(n=>{
+      vBox.appendChild(chip(n, async ()=>{
+        SITE.vendors = SITE.vendors.filter(x=>x!==n);
+        await saveSite(); renderChips(); showToast('削除しました');
+      }));
+    });
+  }
+  renderChips();
+
+  panel.querySelector('#siteName').addEventListener('change', async (e)=>{
+    SITE.name = e.target.value.trim() || SITE.name;
+    await saveSite();
+    showToast('保存しました');
+  });
+  panel.querySelector('#btnAddStaff').onclick = async ()=>{
+    const inp = panel.querySelector('#newStaff');
+    const v = inp.value.trim();
+    if(!v) return;
+    if(!SITE.staff.includes(v)) SITE.staff.push(v);
+    inp.value='';
+    await saveSite(); renderChips(); showToast('追加しました');
+  };
+  panel.querySelector('#btnAddVendor').onclick = async ()=>{
+    const inp = panel.querySelector('#newVendor');
+    const v = inp.value.trim();
+    if(!v) return;
+    if(!SITE.vendors.includes(v)) SITE.vendors.push(v);
+    inp.value='';
+    await saveSite(); renderChips(); showToast('追加しました');
+  };
+
+  holder.appendChild(panel);
+  return holder;
+}
+
+function handleFileImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const logBox = document.getElementById('importLog');
+  const reader = new FileReader();
+  if(file.name.match(/\.csv$/i)){
+    reader.onload = ()=>{
+      const parsed = Papa.parse(reader.result.trim()).data.filter(r=>r.length>1 && r[0]);
+      importRows(parsed, logBox);
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = ()=>{
+      try{
+        const wb = XLSX.read(reader.result, {type:'array'});
+        let rows = [];
+        wb.SheetNames.forEach(sheetName=>{
+          const ws = wb.Sheets[sheetName];
+          const data = XLSX.utils.sheet_to_json(ws, {header:1});
+          data.forEach(r=>{ if(r[0] && !isNaN(r[0])) rows.push([r[0], sheetName].concat(r.slice(1,4))); });
+        });
+        importRows(rows, logBox);
+      }catch(err){
+        logBox.style.display='block';
+        logBox.textContent = '読み込みエラー: '+err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+async function importRows(rows, logBox){
+  let added=0, updated=0;
+  for(const r of rows){
+    const no = String(r[0]).trim();
+    if(!no || isNaN(no)) continue;
+    const floor = (r[1]!=null && r[1]!=='') ? String(r[1]).trim() : (Math.floor(Number(no)/100)+'F');
+    const plan = r[2]!=null ? String(r[2]).trim() : '';
+    const color = r[3]!=null ? String(r[3]).trim() : '';
+    const opt = r[4]!=null ? String(r[4]).trim() : '';
+    const building = r[5]!=null ? String(r[5]).trim() : '';
+    let m = MASTER.find(x=>String(x.no)===no);
+    if(m){ m.floor=floor; m.plan=plan; m.color=color; m.opt=opt; if(building) m.building=building; updated++; }
+    else { MASTER.push({no:Number(no)||no, floor, building, plan, color, opt}); added++; }
+    if(!ROOMS[no]) ROOMS[no] = {plan, color, opt, items: emptyItems()};
+    else { ROOMS[no].plan=plan; ROOMS[no].color=color; ROOMS[no].opt=opt; }
+    await saveRoom(no);
+  }
+  await saveMaster();
+  if(logBox){
+    logBox.style.display='block';
+    logBox.textContent = `取り込み完了：新規 ${added}室 / 更新 ${updated}室 / 合計 ${MASTER.length}室`;
+  }
+  showToast('取り込みました');
+}
+
+function exportCsv(){
+  const rows = [['号室','フロア','メニュープラン','カラーセレクト','オプション','棟']];
+  MASTER.sort((a,b)=>a.no-b.no).forEach(m=>rows.push([m.no,m.floor,m.plan,m.color,m.opt,m.building||'']));
+  const csv = Papa.unparse(rows);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'room_master.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* =========================================================
+   レンダリング — 印刷用（掲示用チェックシート / QRラベル）
+   ========================================================= */
+let printMode = 'sheet'; // 'sheet'=掲示用チェックシート（A4）／ 'label'=QRラベル（小・シール用）
+
+function buildLabels(){
+  const holder = document.createElement('div');
+  const scoped = (buildingFilter==='all' ? MASTER : MASTER.filter(m=>m.building===buildingFilter))
+    .filter(m=>floorFilter==='all' || m.floor===floorFilter)
+    .sort((a,b)=>a.no-b.no);
+  const scopeLabel = (buildingFilter!=='all' || floorFilter!=='all')
+    ? `（絞り込み中：${buildingFilter==='all'?'全棟':buildingFilter} / ${floorFilter==='all'?'全フロア':floorFilter}）` : '';
+
+  const panel = el(`<div class="panel">
+    <h2 class="no-print">掲示・印刷</h2>
+    <p class="desc no-print">全${scoped.length}室分${scopeLabel}。上部の棟・フロアの絞り込みで印刷範囲を変えられます。</p>
+    <div class="sheet-toggle no-print">
+      <button data-m="sheet" class="${printMode==='sheet'?'active':''}">掲示用チェックシート（A4・1室1枚）</button>
+      <button data-m="label" class="${printMode==='label'?'active':''}">QRラベル（小・シール用）</button>
+    </div>
+    <button class="panel-btn no-print" onclick="window.print()">🖨 印刷する</button>
+    <div id="printArea" style="margin-top:16px;"></div>
+  </div>`);
+  panel.querySelectorAll('.sheet-toggle button').forEach(b=>{
+    b.onclick = ()=>{ printMode = b.dataset.m; render(); };
+  });
+  holder.appendChild(panel);
+  const area = panel.querySelector('#printArea');
+
+  if(printMode==='label'){
+    area.className = 'label-sheet';
+    scoped.forEach(m=>{
+      const box = el(`<div class="label"><div class="no">${m.no}</div><div class="qr" id="lbl-${m.no}"></div><div style="font-size:9px;color:#666;">${m.building||''} ${SITE.name}</div></div>`);
+      area.appendChild(box);
+    });
+    setTimeout(()=>{
+      scoped.forEach(m=>{
+        const box = document.getElementById('lbl-'+m.no);
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:70, height:70});
+      });
+    }, 30);
+  } else {
+    scoped.forEach(m=>{
+      const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
+      const rowsHtml = ITEMS.map((name, idx)=>{
+        const it = room.items[idx] || {};
+        const vendorCell = it.vd ? `${it.vd}<br>${it.vn||''}` : '';
+        const staffCell = it.sd ? `${it.sd}<br>${it.sn||''}` : '';
+        return `<tr>
+          <td class="name">${idx+1}. ${name}</td>
+          <td class="${it.vd?'':'blank'}">${vendorCell}</td>
+          <td class="${it.sd?'':'blank'}">${staffCell}</td>
+        </tr>`;
+      }).join('');
+      const page = el(`<div class="sheet-page">
+        <div class="sheet-top">
+          <div>
+            <div class="sheet-titlewrap"><span class="sheet-no">${m.no}</span><span class="sheet-sub">号室 ／ ${m.building||''}${m.floor}</span></div>
+          </div>
+          <div class="sheet-qrwrap"><div id="sheetqr-${m.no}"></div><div class="cap">スキャンでWEB版へ</div></div>
+        </div>
+        <div class="sheet-info">
+          <span><b>メニュープラン</b>${escapeHtml(room.plan)}</span>
+          <span><b>カラーセレクト</b><span style="background:${colorTypeBg(room.color)};padding:1px 7px;border-radius:4px;">${escapeHtml(room.color)}</span></span>
+          <span><b>オプション</b>${escapeHtml(room.opt)||'－'}</span>
+        </div>
+        <table class="sheet-table">
+          <thead><tr><th style="width:38%;">確認事項</th><th>業者確認（日付／確認者）</th><th>職員確認（日付／確認者）</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="sheet-foot"><span>${SITE.name}</span><span>印刷日：${todayStr()}</span></div>
+      </div>`);
+      area.appendChild(page);
+    });
+    setTimeout(()=>{
+      scoped.forEach(m=>{
+        const box = document.getElementById('sheetqr-'+m.no);
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:128, height:128});
+      });
+    }, 30);
+  }
+  return holder;
+}
+
+/* =========================================================
+   下部ナビ
+   ========================================================= */
+function buildFabNav(){
+  const nav = el(`<div class="fab-nav no-print">
+    <button data-v="dashboard">一覧</button>
+    <button data-v="import">取込</button>
+    <button data-v="labels">掲示・印刷</button>
+    <button data-v="settings">設定</button>
+  </div>`);
+  nav.querySelectorAll('button').forEach(b=>{
+    if(b.dataset.v===route.view || (b.dataset.v==='dashboard' && route.view==='room')) b.classList.add('active');
+    b.onclick = ()=>go(b.dataset.v);
+  });
+  return nav;
+}
+
+/* =========================================================
+   起動
+   ========================================================= */
+(async function init(){
+  document.getElementById('app').innerHTML = '<div class="empty-state">読み込み中...</div>';
+  await loadAll();
+  route = parseHash();
+  render();
+})();
+</script>
+</body>
+</html>
