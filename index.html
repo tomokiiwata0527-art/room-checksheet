@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>居室チェック管理 - 三交四日市</title>
+<title>居室チェック管理 - 京王多摩川開発B棟</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -12,6 +12,7 @@
 <!-- Firebase（USE_FIREBASEをtrueにして使う場合のみ有効になります。falseなら読み込まれるだけで何もしません） -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   :root{
     --bg:#eceae2;
@@ -44,7 +45,7 @@
   .site-title{display:flex;flex-direction:column;line-height:1.1;}
   .site-title .eyebrow{font-size:11px;letter-spacing:.04em;color:#9db3c9;font-weight:500;}
   .site-title .name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:.01em;}
-  .topbar-btns{display:flex;gap:6px;}
+  .topbar-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
   .icon-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:7px;padding:7px 10px;font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
   .icon-btn:active{background:rgba(255,255,255,.22);}
 
@@ -103,6 +104,22 @@
   .info-field input:focus{outline:2px solid var(--orange);outline-offset:-1px;}
 
   .checklist{padding:14px 14px 0;}
+  .group-head{display:flex;align-items:center;justify-content:space-between;margin:16px 2px 6px;padding-top:6px;}
+  .group-head:first-child{margin-top:0;padding-top:0;}
+  .group-head .gname{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--navy);letter-spacing:.02em;}
+  .group-chip{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;}
+  .group-chip.none{background:var(--grey-bg);color:var(--ink-soft);}
+  .group-chip.partial{background:#fdf6e3;color:#8a5c00;}
+  .group-chip.done{background:var(--green-bg);color:var(--green);}
+  .trade-badge{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:4px;margin-left:6px;vertical-align:middle;}
+  .trade-badge.build{background:#e4e6ea;color:#20242c;}
+  .trade-badge.equip{background:#dbe9fb;color:#1a4fa0;}
+  .trade-badge.elec{background:#fbdcdb;color:#a3241d;}
+  .trade-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px 0;font-size:11px;color:var(--ink-soft);}
+  .trade-legend .lbl{font-weight:700;margin-right:2px;}
+  .sheet-legend{display:flex;align-items:center;gap:10px;font-size:8.5px;color:#444;margin:4px 0 6px;}
+  .sheet-legend .lbl{font-weight:700;margin-right:2px;}
+  .sheet-legend .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:middle;}
   .check-row{background:var(--surface);border-radius:10px;margin-bottom:8px;padding:10px 12px;border:1px solid var(--line);}
   .check-row .item-name{font-size:13.5px;font-weight:700;margin-bottom:8px;color:var(--ink);}
   .confirm-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -138,25 +155,28 @@
   .sheet-toggle button{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:500;color:var(--ink-soft);}
   .sheet-toggle button.active{background:var(--navy);border-color:var(--navy);color:#fff;}
 
-  .sheet-page{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px 18px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
-  .sheet-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:8px;}
-  .sheet-titlewrap{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
-  .sheet-no{font-family:'Barlow Condensed',sans-serif;font-size:64px;font-weight:700;line-height:1;}
-  .sheet-sub{font-size:20px;color:var(--ink-soft);}
+  .sheet-page{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+  .sheet-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:6px;}
+  .sheet-titlewrap{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .sheet-no{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:700;line-height:1;}
+  .sheet-sub{font-size:14px;color:var(--ink-soft);}
   .sheet-qrwrap{text-align:center;}
-  .sheet-qrwrap .cap{font-size:8.5px;color:var(--ink-soft);margin-top:2px;}
-  .sheet-info{display:flex;gap:18px;margin:8px 0 10px;font-size:12px;flex-wrap:wrap;}
-  .sheet-info span b{display:block;font-size:9.5px;color:var(--ink-soft);font-weight:500;}
-  .sheet-info span{line-height:1.4;}
-  table.sheet-table{width:100%;border-collapse:collapse;font-size:11px;}
-  table.sheet-table th{background:#eee;border:1px solid #999;padding:4px 3px;font-weight:700;font-size:10.5px;}
-  table.sheet-table td{border:1px solid #999;padding:5px 4px;text-align:center;height:22px;}
-  table.sheet-table td.name{text-align:left;font-weight:700;font-size:11px;white-space:nowrap;}
+  .sheet-qrwrap .cap{font-size:7.5px;color:var(--ink-soft);margin-top:2px;}
+  .sheet-info{display:flex;gap:14px;margin:6px 0 6px;font-size:11px;flex-wrap:wrap;}
+  .sheet-info span b{display:block;font-size:8.5px;color:var(--ink-soft);font-weight:500;}
+  .sheet-info span{line-height:1.3;}
+  .sheet-cols{display:flex;gap:10px;align-items:flex-start;}
+  .sheet-col{flex:1;min-width:0;}
+  table.sheet-table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed;}
+  table.sheet-table th{background:#eee;border:1px solid #999;padding:3px 2px;font-weight:700;font-size:8.8px;}
+  table.sheet-table td{border:1px solid #999;padding:2.5px 3px;text-align:center;height:auto;line-height:1.25;}
+  table.sheet-table td.name{text-align:left;font-weight:700;font-size:9.5px;white-space:normal;word-break:break-word;}
   table.sheet-table td.blank{color:#bbb;}
-  .sheet-foot{display:flex;justify-content:space-between;margin-top:8px;font-size:9.5px;color:var(--ink-soft);}
+  table.sheet-table td.grouprow{background:#f0efe9;font-weight:700;text-align:left;padding:2px 5px;font-size:9px;}
+  .sheet-foot{display:flex;justify-content:space-between;margin-top:6px;font-size:8.5px;color:var(--ink-soft);}
 
   @media print{
-    .sheet-page{page-break-after:always;border:none;box-shadow:none;border-radius:0;margin:0;padding:8mm 6mm;}
+    .sheet-page{page-break-after:always;border:none;box-shadow:none;border-radius:0;margin:0;padding:6mm 5mm;}
     .sheet-page:last-child{page-break-after:auto;}
   }
   .label .no{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
@@ -183,18 +203,408 @@
 /* =========================================================
    居室チェック管理 — データモデル
    ========================================================= */
-const ITEMS = ['ALC開口・コア','SD・AWレベル','トロ詰め・パラテックス','断熱モルタル','額縁（ビス）','ｳﾚﾀﾝ厚み・範囲','UB位置・レベル','造作下地補強','住設・家具有効','オプション','クロス出来形','点検口内清掃状況','取付けｵﾌﾟｼｮﾝ','フローリング出来形','カラーセレクト'];
+// 2026年8月改訂版チェック項目（進捗管理表_住戸前掲示用より）
+// g = 工程番号（同じgの項目がひとかたまり。完了しても次工程はロックしない＝目安表示のみ）
+// s = 工程内の枝番表示（1-1等）／ trade = 担当区分（build=建築[黒], equip=設備[青], elec=電気[赤]）
+// ※ 2026-08改訂で旧15項目から全面差し替え。旧チェック記録（vd/vn/sd/sn）は互換性がないため
+//   ITEMS_SCHEMA_VERSION を上げて起動時に全室分をリセットする（loadAll内でmigrateItemsSchema()）。
+const ITEMS_SCHEMA_VERSION = 2;
+const ITEMS = [
+  {g:1,  s:'1-1',  trade:'build', ja:'墨出',                     ko:'먹매김'},
+  {g:1,  s:'1-2',  trade:'equip', ja:'立管・墨出',                ko:'입상관・먹매김'},
+  {g:1,  s:'1-3',  trade:'elec',  ja:'先行配線・墨出',             ko:'선행배선・먹매김'},
+  {g:2,  s:'2-1',  trade:'build', ja:'ALC開口・コア',              ko:'ALC 개구부・코어'},
+  {g:2,  s:'2-2',  trade:'build', ja:'SD・AWレベル',               ko:'SD・AW 레벨'},
+  {g:2,  s:'2-3',  trade:'build', ja:'断熱モルタル',                ko:'단열 모르타르'},
+  {g:3,  s:'3-1',  trade:'build', ja:'額縁・ピース付け',            ko:'몰딩・피스 설치'},
+  {g:3,  s:'3-2',  trade:'equip', ja:'ダクト配管・保温・(SP)',       ko:'덕트 배관・보온・(SP)'},
+  {g:3,  s:'3-3',  trade:'equip', ja:'転がし配管',                 ko:'바닥 노출배관'},
+  {g:4,  s:'4-1',  trade:'build', ja:'ウレタン',                   ko:'우레탄'},
+  {g:4,  s:'4-2',  trade:'equip', ja:'ウレタン後配管(ポリ・ダクト)', ko:'우레탄 후속배관(폴리・덕트)'},
+  {g:5,  s:'5-1',  trade:'build', ja:'UB',                       ko:'UB(유닛욕조)'},
+  {g:6,  s:'6-1',  trade:'build', ja:'UB枠・框',                  ko:'UB 틀・문틀'},
+  {g:6,  s:'6-2',  trade:'build', ja:'先行LGS・PB',                ko:'선행 LGS・PB'},
+  {g:7,  s:'7-1',  trade:'build', ja:'置床',                      ko:'이중바닥'},
+  {g:8,  s:'8-1',  trade:'build', ja:'墨出',                      ko:'먹매김'},
+  {g:8,  s:'8-2',  trade:'equip', ja:'墨出',                      ko:'먹매김'},
+  {g:8,  s:'8-3',  trade:'elec',  ja:'墨出',                      ko:'먹매김'},
+  {g:9,  s:'9-1',  trade:'build', ja:'LGS',                      ko:'LGS'},
+  {g:9,  s:'9-2',  trade:'equip', ja:'間仕切り配管',                ko:'칸막이 배관'},
+  {g:9,  s:'9-3',  trade:'elec',  ja:'BOX建込、配線',              ko:'박스 설치, 배선'},
+  {g:10, s:'10-1', trade:'build', ja:'造作',                      ko:'목공사'},
+  {g:11, s:'11-1', trade:'build', ja:'先付家具',                   ko:'선행 가구 설치'},
+  {g:12, s:'12-1', trade:'build', ja:'PB',                       ko:'PB(석고보드)'},
+  {g:12, s:'12-2', trade:'equip', ja:'ボード開口',                 ko:'보드 개구'},
+  {g:12, s:'12-3', trade:'elec',  ja:'ボード開口',                 ko:'보드 개구'},
+  {g:13, s:'13-1', trade:'build', ja:'キッチン',                   ko:'주방(키친)'},
+  {g:14, s:'14-1', trade:'build', ja:'キッチンパネル',              ko:'키친 패널'},
+  {g:15, s:'15-1', trade:'build', ja:'クロス',                    ko:'도배(벽지)'},
+  {g:16, s:'16-1', trade:'build', ja:'床仕上げ(水廻り)',            ko:'바닥 마감(물 사용 공간)'},
+  {g:17, s:'17-1', trade:'build', ja:'洗面化粧台',                 ko:'세면화장대'},
+  {g:17, s:'17-2', trade:'equip', ja:'衛生器具',                   ko:'위생기구'},
+  {g:17, s:'17-3', trade:'elec',  ja:'器具付け',                   ko:'기구 설치'},
+  {g:18, s:'18-1', trade:'build', ja:'玄関タイル框',               ko:'현관 타일 문턱'},
+  {g:19, s:'19-1', trade:'build', ja:'フローリング',                ko:'마루(플로어링)'},
+  {g:20, s:'20-1', trade:'build', ja:'木巾木',                    ko:'목재 걸레받이'},
+  {g:21, s:'21-1', trade:'build', ja:'雑金物',                    ko:'잡철물'},
+  {g:21, s:'21-2', trade:'build', ja:'家具',                      ko:'가구'},
+  {g:21, s:'21-3', trade:'build', ja:'木建扉',                    ko:'목재 도어(건구)'},
+  {g:21, s:'21-4', trade:'equip', ja:'器具付け',                   ko:'기구 설치'},
+  {g:21, s:'21-5', trade:'elec',  ja:'器具付け',                   ko:'기구 설치'},
+  {g:22, s:'22-1', trade:'build', ja:'クリーニング',                ko:'청소(클리닝)'},
+];
+function itemName(idx){ const it = ITEMS[idx]; if(!it) return ''; return (LANG==='ko' ? it.ko : it.ja) || it.ja || ''; }
+
+/* =========================================================
+   多言語対応（日本語 / 韓国語）
+   ---------------------------------------------------------
+   ・現場の実データ（号室・フロア・メニュープラン・カラーセレクト・
+     オプション・職員名・業者名など）は翻訳しない（そのまま入力された
+     言語で表示する）。翻訳するのはアプリのUI文言と、固定の確認項目
+     15件（ITEMS_KO）のみ。
+   ・選択した言語は localStorage に保存し、次回起動時も引き継ぐ。
+   ========================================================= */
+let LANG = localStorage.getItem('qc_lang') || 'ja';
+function setLang(lang){ LANG = lang; localStorage.setItem('qc_lang', lang); document.documentElement.lang = lang; render(); }
+function t(key, vars){
+  const dict = I18N[LANG] || I18N.ja;
+  let s = (dict[key]!=null) ? dict[key] : (I18N.ja[key]!=null ? I18N.ja[key] : key);
+  if(vars) Object.keys(vars).forEach(k=>{ s = s.split(`{${k}}`).join(vars[k]); });
+  return s;
+}
+
+const I18N = {
+  ja: {
+    appEyebrow: '居室チェックシート・WEB版',
+    loginBtn: '🔒 ログイン',
+    loggedInFmt: '👤 {name}{adminTag}',
+    adminTag: '（管理者）',
+    logoutConfirmFmt: '{name}としてログイン中です。ログアウトしますか？',
+    loggedOutToast: 'ログアウトしました',
+    loginPickPrompt: '職員名を選んでPINを入力してください',
+    progressDoneFmt: '{done} / {total} 項目完了　（{rooms}室）',
+    legendNone: '未着手', legendVendor: '業者確認済', legendStaff: '職員承認済',
+    allBuildings: '全棟', allFloors: '全フロア',
+    floorDoneFmt: '{done}/{total} 室 完了',
+    emptyMasterTitle: '部屋データがありません',
+    emptyMasterSub: 'CSV / Excel を取り込んで開始してください',
+    goImport: '取り込み画面へ',
+    roomNotFoundFmt: '{no}号室が見つかりません',
+    backToList: '一覧に戻る', backToListArrow: '← 一覧に戻る',
+    showQr: 'QR表示',
+    roomSuffixFmt: '号室 ／ {loc}',
+    doneCountFmt: '{done}/{total} 完了',
+    fieldPlan: 'メニュープラン', fieldColor: 'カラーセレクト', fieldOpt: 'オプション',
+    labelVendorConfirm: '業者確認', labelStaffConfirm: '職員確認', tapToRecord: 'タップして記録',
+    qrTitleFmt: '{no}号室 QRラベル',
+    qrHint: '現地掲示用。スマホでスキャンするとこの画面に直接遷移します。<br>本番運用では公開URLでホスティングしてください。',
+    printThisLabel: '🖨 このラベルを印刷',
+    savedToast: '保存しました', updatedToast: '更新しました',
+    staffEditLoginPrompt: '部屋情報の編集にはログインが必要です',
+    staffConfirmLoginPrompt: '職員確認の記録にはログインが必要です',
+    vendorUnsetConfirmFmt: '「業者確認（{val}）」を取り消しますか？',
+    staffUnsetConfirmFmt: '「職員確認（{val}）」を取り消しますか？\n（{actor}が取消操作者として記録されます）',
+    unrecordedName: '未記名', noLoginTag: '（ログイン無し操作・取消実行者は特定不可）',
+    loginModalTitle: '職員ログイン',
+    pinPlaceholder: 'PINコード', pinWrongError: 'PINが違います',
+    loginOkBtn: 'ログイン', cancelBtn: 'キャンセル',
+    confirmCancelBtn: '取り消す',
+    pickOtherPlaceholder: 'その他（自由入力）', pickDecideBtn: '決定',
+    vendorPickTitle: '業者を選択',
+    vendorNameModalTitle: '業者名の設定',
+    vendorNameFirstTimePrompt: '検査する業者名（会社名・担当者名など）を入力してください。この端末に記憶され、次回以降は入力なしで記録されます。',
+    vendorNameChangePrompt: 'この端末で記録する業者名を変更します。',
+    vendorNamePlaceholder: '例：〇〇クロス／山田太郎',
+    vendorNameNotSet: '業者名未設定',
+    vendorNameSavedToast: 'この端末の業者名を保存しました',
+    importTitle: '部屋マスタ取り込み',
+    importDesc: '現場の全戸分（号室・メニュープラン・カラーセレクト・オプション・棟）を一括で取り込みます。既存のExcel（仕上チェック表）や、CSVをそのまま利用できます。<br>CSV列順：<b>号室, フロア, メニュープラン, カラーセレクト, オプション, 棟</b>（棟は省略可。1行目はヘッダーとして無視されます）',
+    dropZoneLabel: '📄 Excel(.xlsx) / CSV ファイルを選択',
+    pasteCsvLabel: 'またはCSVを直接貼り付け：',
+    csvTextareaPlaceholder: '901,9F,基本,リュクスホワイト,無し\n902,9F,メニュー2,セピアブラウン,有り',
+    parseCsvBtn: 'この内容を取り込む',
+    exportMasterCsvBtn: '現在のマスタをCSVで書き出す',
+    exportProgressCsvBtn: '進捗状況を一括出力（CSV）',
+    importDoneFmt: '取り込み完了：新規 {added}室 / 更新 {updated}室 / 合計 {total}室',
+    importedToast: '取り込みました',
+    importReadErrorFmt: '読み込みエラー: {msg}',
+    settingsTitle: '設定',
+    settingsDesc: '現場名や、業者確認・職員確認の際に選択できる名前のマスターを管理します。ここで登録した名前が、号室詳細画面の確認者選択に反映されます。',
+    siteNameLabel: '現場名',
+    staffMasterHeader: '職員（確認者）マスター',
+    staffMasterDesc: 'PINは4桁以上の数字がおすすめです。「管理者」にチェックした職員だけが、この設定画面と取込画面を開けます。PINは平文保存のため、社外に見せる資料には絶対に写り込ませないでください。',
+    newStaffPlaceholder: '職員名（例：椎名）', newStaffPinPlaceholder: 'PIN（例：2468）',
+    addBtn: '追加', pinNotSetPlaceholder: 'PIN未設定', adminLabel: '管理者',
+    vendorMasterHeader: '業者マスター', newVendorPlaceholder: '業者名を追加（例：〇〇クロス）',
+    pinUpdatedToast: 'PINを更新しました', permUpdatedToast: '権限を更新しました', deletedToast: '削除しました', addedToast: '追加しました',
+    labelsTitle: '掲示・印刷',
+    labelsDescFmt: '全{n}室分{scope}。上部の棟・フロアの絞り込みで印刷範囲を変えられます。',
+    scopeFmt: '（絞り込み中：{b} / {f}）',
+    sheetModeBtn: '掲示用チェックシート（A4・1室1枚）', labelModeBtn: 'QRラベル（小・シール用）',
+    printBtn: '🖨 印刷する',
+    sheetColItem: '確認事項', sheetColVendor: '業者確認（日付／確認者）', sheetColStaff: '職員確認（日付／確認者）',
+    printDateFmt: '印刷日：{d}', scanCaption: 'スキャンでWEB版へ',
+    historyTitle: '操作履歴',
+    historyDesc: '誰が・いつ・どの部屋のどの項目を確認／取消したかの記録です（直近300件を表示）。「今週中に職員確認が必要な件数」などの集計は、下のCSV出力を表計算ソフトで開くと分析できます。',
+    exportLogsBtn: '履歴をCSVで出力', loadingLabel: '読み込み中...', noHistoryLabel: 'まだ記録がありません',
+    historyRoomLineFmt: '{no}号室 — {item}（{kind}）',
+    historyPrevValueFmt: '　（取消前：{val}）',
+    actionSet: '記録', actionUnset: '取消',
+    logsExportedToast: '履歴を出力しました',
+    progressExportedToast: '進捗状況を出力しました',
+    itemsResetToast: 'チェック項目を新しい構成（23工程）に更新しました',
+    tradeBuild: '建築', tradeEquip: '設備', tradeElec: '電気',
+    tradeLegendTitle: '担当区分',
+    groupLabelFmt: '工程 {g}',
+    csvHeadNo:'号室', csvHeadFloor:'フロア', csvHeadPlan:'メニュープラン', csvHeadColor:'カラーセレクト', csvHeadOpt:'オプション', csvHeadBuilding:'棟',
+    csvHeadDone:'完了数', csvHeadTotal:'項目数', csvHeadPct:'進捗率', csvHeadStatus:'ステータス',
+    statusDone:'完了', statusPartial:'一部完了', statusNone:'未着手',
+    csvVendorDate:'業者日付', csvVendorName:'業者確認者', csvStaffDate:'職員日付', csvStaffName:'職員確認者',
+    csvLogHeads: ['日時','号室','項目','種別','操作','担当者','取消前の値'],
+    navList: '一覧', navHistory: '履歴', navImport: '取込', navLabels: '掲示・印刷', navSettings: '設定',
+    needAdminLoginToast: '管理者ログインが必要です', needStaffLoginToast: '職員ログインが必要です',
+    adminOnlyScreenPrompt: 'この画面は管理者のみ利用できます', staffOnlyScreenPrompt: 'この画面の利用にはログインが必要です',
+    needAdminPermToast: 'この操作には管理者権限が必要です',
+  },
+  ko: {
+    appEyebrow: '객실 체크시트・WEB판',
+    loginBtn: '🔒 로그인',
+    loggedInFmt: '👤 {name}{adminTag}',
+    adminTag: '（관리자）',
+    logoutConfirmFmt: '{name}(으)로 로그인 중입니다. 로그아웃하시겠습니까?',
+    loggedOutToast: '로그아웃했습니다',
+    loginPickPrompt: '직원 이름을 선택하고 PIN을 입력하세요',
+    progressDoneFmt: '{done} / {total} 항목 완료　（{rooms}실）',
+    legendNone: '미착수', legendVendor: '업체 확인완료', legendStaff: '직원 승인완료',
+    allBuildings: '전체 동', allFloors: '전체 층',
+    floorDoneFmt: '{done}/{total} 실 완료',
+    emptyMasterTitle: '객실 데이터가 없습니다',
+    emptyMasterSub: 'CSV / Excel을 불러와서 시작하세요',
+    goImport: '불러오기 화면으로',
+    roomNotFoundFmt: '{no}호실을 찾을 수 없습니다',
+    backToList: '목록으로', backToListArrow: '← 목록으로',
+    showQr: 'QR 표시',
+    roomSuffixFmt: '호실 ／ {loc}',
+    doneCountFmt: '{done}/{total} 완료',
+    fieldPlan: '메뉴 플랜', fieldColor: '컬러 선택', fieldOpt: '옵션',
+    labelVendorConfirm: '업체 확인', labelStaffConfirm: '직원 확인', tapToRecord: '탭하여 기록',
+    qrTitleFmt: '{no}호실 QR 라벨',
+    qrHint: '현장 게시용입니다. 스마트폰으로 스캔하면 이 화면으로 바로 이동합니다.<br>실제 운영 시에는 공개 URL로 호스팅하세요.',
+    printThisLabel: '🖨 이 라벨 인쇄',
+    savedToast: '저장했습니다', updatedToast: '업데이트했습니다',
+    staffEditLoginPrompt: '객실 정보 수정에는 로그인이 필요합니다',
+    staffConfirmLoginPrompt: '직원 확인 기록에는 로그인이 필요합니다',
+    vendorUnsetConfirmFmt: '「업체 확인（{val}）」을 취소하시겠습니까？',
+    staffUnsetConfirmFmt: '「직원 확인（{val}）」을 취소하시겠습니까？\n（{actor}님이 취소 실행자로 기록됩니다）',
+    unrecordedName: '이름 미상', noLoginTag: '（로그인 없이 조작・취소 실행자 특정 불가）',
+    loginModalTitle: '직원 로그인',
+    pinPlaceholder: 'PIN 코드', pinWrongError: 'PIN이 올바르지 않습니다',
+    loginOkBtn: '로그인', cancelBtn: '취소',
+    confirmCancelBtn: '취소하기',
+    pickOtherPlaceholder: '기타（직접 입력）', pickDecideBtn: '확정',
+    vendorPickTitle: '업체 선택',
+    vendorNameModalTitle: '업체명 설정',
+    vendorNameFirstTimePrompt: '점검할 업체명（회사명・담당자명 등）을 입력하세요. 이 기기에 저장되어 다음부터는 입력 없이 기록됩니다.',
+    vendorNameChangePrompt: '이 기기에 기록할 업체명을 변경합니다.',
+    vendorNamePlaceholder: '예：〇〇도배／홍길동',
+    vendorNameNotSet: '업체명 미설정',
+    vendorNameSavedToast: '이 기기의 업체명을 저장했습니다',
+    importTitle: '객실 마스터 불러오기',
+    importDesc: '현장의 전체 세대（호실・메뉴 플랜・컬러 선택・옵션・동）를 일괄로 불러옵니다. 기존 Excel（마감 체크표）이나 CSV를 그대로 사용할 수 있습니다.<br>CSV 열 순서：<b>호실, 층, 메뉴 플랜, 컬러 선택, 옵션, 동</b>（동은 생략 가능. 첫 줄은 헤더로 간주되어 무시됩니다）',
+    dropZoneLabel: '📄 Excel(.xlsx) / CSV 파일 선택',
+    pasteCsvLabel: '또는 CSV를 직접 붙여넣기：',
+    csvTextareaPlaceholder: '901,9F,기본,럭스화이트,없음\n902,9F,메뉴2,세피아브라운,있음',
+    parseCsvBtn: '이 내용 불러오기',
+    exportMasterCsvBtn: '현재 마스터를 CSV로 내보내기',
+    exportProgressCsvBtn: '진행 상황 일괄 출력（CSV）',
+    importDoneFmt: '불러오기 완료：신규 {added}실 / 갱신 {updated}실 / 합계 {total}실',
+    importedToast: '불러왔습니다',
+    importReadErrorFmt: '읽기 오류: {msg}',
+    settingsTitle: '설정',
+    settingsDesc: '현장명과, 업체 확인・직원 확인 시 선택할 수 있는 이름 목록을 관리합니다. 여기서 등록한 이름이 호실 상세화면의 확인자 선택에 반영됩니다.',
+    siteNameLabel: '현장명',
+    staffMasterHeader: '직원（확인자）마스터',
+    staffMasterDesc: 'PIN은 4자리 이상의 숫자를 권장합니다. 「관리자」를 체크한 직원만 이 설정 화면과 불러오기 화면을 열 수 있습니다. PIN은 평문으로 저장되므로 외부에 공개되는 자료에 절대 노출되지 않도록 주의하세요.',
+    newStaffPlaceholder: '직원 이름（예：시이나）', newStaffPinPlaceholder: 'PIN（예：2468）',
+    addBtn: '추가', pinNotSetPlaceholder: 'PIN 미설정', adminLabel: '관리자',
+    vendorMasterHeader: '업체 마스터', newVendorPlaceholder: '업체명 추가（예：〇〇도배）',
+    pinUpdatedToast: 'PIN을 업데이트했습니다', permUpdatedToast: '권한을 업데이트했습니다', deletedToast: '삭제했습니다', addedToast: '추가했습니다',
+    labelsTitle: '게시・인쇄',
+    labelsDescFmt: '전체 {n}실{scope}. 상단의 동・층 필터로 인쇄 범위를 바꿀 수 있습니다.',
+    scopeFmt: '（필터 중：{b} / {f}）',
+    sheetModeBtn: '게시용 체크시트（A4・1실 1장）', labelModeBtn: 'QR 라벨（소형・스티커용）',
+    printBtn: '🖨 인쇄하기',
+    sheetColItem: '확인 사항', sheetColVendor: '업체 확인（날짜／확인자）', sheetColStaff: '직원 확인（날짜／확인자）',
+    printDateFmt: '인쇄일：{d}', scanCaption: '스캔하면 WEB판으로',
+    historyTitle: '작업 이력',
+    historyDesc: '누가・언제・어느 객실의 어느 항목을 확인／취소했는지에 대한 기록입니다（최근 300건 표시）. 「이번 주 중 직원 확인이 필요한 건수」등의 집계는 아래 CSV 출력을 표계산 소프트웨어로 열어 분석할 수 있습니다.',
+    exportLogsBtn: '이력을 CSV로 출력', loadingLabel: '불러오는 중...', noHistoryLabel: '아직 기록이 없습니다',
+    historyRoomLineFmt: '{no}호실 — {item}（{kind}）',
+    historyPrevValueFmt: '　（취소 전：{val}）',
+    actionSet: '기록', actionUnset: '취소',
+    logsExportedToast: '이력을 출력했습니다',
+    progressExportedToast: '진행 상황을 출력했습니다',
+    itemsResetToast: '체크 항목을 새 구성（23공정）으로 업데이트했습니다',
+    tradeBuild: '건축', tradeEquip: '설비', tradeElec: '전기',
+    tradeLegendTitle: '담당 구분',
+    groupLabelFmt: '공정 {g}',
+    csvHeadNo:'호실', csvHeadFloor:'층', csvHeadPlan:'메뉴 플랜', csvHeadColor:'컬러 선택', csvHeadOpt:'옵션', csvHeadBuilding:'동',
+    csvHeadDone:'완료 수', csvHeadTotal:'항목 수', csvHeadPct:'진행률', csvHeadStatus:'상태',
+    statusDone:'완료', statusPartial:'일부완료', statusNone:'미착수',
+    csvVendorDate:'업체 날짜', csvVendorName:'업체 확인자', csvStaffDate:'직원 날짜', csvStaffName:'직원 확인자',
+    csvLogHeads: ['일시','호실','항목','종류','조작','담당자','취소 전 값'],
+    navList: '목록', navHistory: '이력', navImport: '불러오기', navLabels: '게시・인쇄', navSettings: '설정',
+    needAdminLoginToast: '관리자 로그인이 필요합니다', needStaffLoginToast: '직원 로그인이 필요합니다',
+    adminOnlyScreenPrompt: '이 화면은 관리자만 이용할 수 있습니다', staffOnlyScreenPrompt: '이 화면을 이용하려면 로그인이 필요합니다',
+    needAdminPermToast: '이 작업에는 관리자 권한이 필요합니다',
+  }
+};
 
 // 京王多摩川開発B棟 実データ（カラーセレクト表より214戸）
 const SEED_ROOMS = [{"no": 301, "floor": "3F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 302, "floor": "3F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 303, "floor": "3F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 304, "floor": "3F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 305, "floor": "3F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 306, "floor": "3F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 307, "floor": "3F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 308, "floor": "3F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 309, "floor": "3F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 310, "floor": "3F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 311, "floor": "3F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 312, "floor": "3F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 313, "floor": "3F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 314, "floor": "3F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 315, "floor": "3F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 316, "floor": "3F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 317, "floor": "3F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 318, "floor": "3F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 401, "floor": "4F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 402, "floor": "4F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 403, "floor": "4F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 404, "floor": "4F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 405, "floor": "4F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 406, "floor": "4F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 407, "floor": "4F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 408, "floor": "4F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 409, "floor": "4F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 410, "floor": "4F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 411, "floor": "4F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 412, "floor": "4F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 413, "floor": "4F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 414, "floor": "4F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 415, "floor": "4F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 416, "floor": "4F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 417, "floor": "4F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 418, "floor": "4F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 419, "floor": "4F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 420, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 421, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 422, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 423, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 424, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 425, "floor": "4F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 426, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 427, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 428, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 429, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 430, "floor": "4F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 431, "floor": "4F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 432, "floor": "4F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 433, "floor": "4F", "building": "東棟", "plan": "F14(3LDK)", "color": "ラックス", "opt": ""}, {"no": 434, "floor": "4F", "building": "東棟", "plan": "F5(3LDK)", "color": "ラックス", "opt": ""}, {"no": 435, "floor": "4F", "building": "東棟", "plan": "F12(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 436, "floor": "4F", "building": "東棟", "plan": "F17(3LDK)", "color": "モダン", "opt": ""}, {"no": 501, "floor": "5F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 502, "floor": "5F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 503, "floor": "5F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 504, "floor": "5F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 505, "floor": "5F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 506, "floor": "5F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 507, "floor": "5F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 508, "floor": "5F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 509, "floor": "5F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 510, "floor": "5F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 511, "floor": "5F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 512, "floor": "5F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 513, "floor": "5F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 514, "floor": "5F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 515, "floor": "5F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 516, "floor": "5F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 517, "floor": "5F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 518, "floor": "5F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 519, "floor": "5F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 520, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 521, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 522, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 523, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 524, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 525, "floor": "5F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 526, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 527, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 528, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 529, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 530, "floor": "5F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 531, "floor": "5F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 532, "floor": "5F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 533, "floor": "5F", "building": "東棟", "plan": "F14(3LDK)", "color": "ラックス", "opt": ""}, {"no": 534, "floor": "5F", "building": "東棟", "plan": "F5(3LDK)", "color": "ラックス", "opt": ""}, {"no": 535, "floor": "5F", "building": "東棟", "plan": "F12(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 536, "floor": "5F", "building": "東棟", "plan": "F17(3LDK)", "color": "モダン", "opt": ""}, {"no": 601, "floor": "6F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 602, "floor": "6F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 603, "floor": "6F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 604, "floor": "6F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 605, "floor": "6F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 606, "floor": "6F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 607, "floor": "6F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 608, "floor": "6F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 609, "floor": "6F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 610, "floor": "6F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 611, "floor": "6F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 612, "floor": "6F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 613, "floor": "6F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 614, "floor": "6F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 615, "floor": "6F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 616, "floor": "6F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 617, "floor": "6F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 618, "floor": "6F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 619, "floor": "6F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 620, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 621, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 622, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 623, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 624, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 625, "floor": "6F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 626, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 627, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 628, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 629, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 630, "floor": "6F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 631, "floor": "6F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 632, "floor": "6F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 633, "floor": "6F", "building": "東棟", "plan": "F14(3LDK)", "color": "ラックス", "opt": ""}, {"no": 634, "floor": "6F", "building": "東棟", "plan": "F5(3LDK)", "color": "ラックス", "opt": ""}, {"no": 635, "floor": "6F", "building": "東棟", "plan": "F12t(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 701, "floor": "7F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 702, "floor": "7F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 703, "floor": "7F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 704, "floor": "7F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 705, "floor": "7F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 706, "floor": "7F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 707, "floor": "7F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 708, "floor": "7F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 709, "floor": "7F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 710, "floor": "7F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 711, "floor": "7F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 712, "floor": "7F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 713, "floor": "7F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 714, "floor": "7F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 715, "floor": "7F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 716, "floor": "7F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 717, "floor": "7F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 718, "floor": "7F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 719, "floor": "7F", "building": "北棟", "plan": "S2(1K)", "color": "ラックス", "opt": ""}, {"no": 720, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 721, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 722, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 723, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 724, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ナチュラル", "opt": ""}, {"no": 725, "floor": "7F", "building": "北棟", "plan": "S1a(1K)", "color": "ラックス", "opt": ""}, {"no": 726, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 727, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 728, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 729, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 730, "floor": "7F", "building": "北棟", "plan": "S1b", "color": "企画住戸", "opt": ""}, {"no": 731, "floor": "7F", "building": "北棟", "plan": "S3(1LDK)", "color": "ラックス", "opt": ""}, {"no": 732, "floor": "7F", "building": "北棟", "plan": "S3(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 733, "floor": "7F", "building": "東棟", "plan": "F14(2LDK)", "color": "ラックス", "opt": ""}, {"no": 734, "floor": "7F", "building": "東棟", "plan": "F5t(2LDK)", "color": "ラックス", "opt": ""}, {"no": 801, "floor": "8F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 802, "floor": "8F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 803, "floor": "8F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 804, "floor": "8F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 805, "floor": "8F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 806, "floor": "8F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 807, "floor": "8F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 808, "floor": "8F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 809, "floor": "8F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 810, "floor": "8F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 811, "floor": "8F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 812, "floor": "8F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 813, "floor": "8F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 814, "floor": "8F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 815, "floor": "8F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 816, "floor": "8F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 817, "floor": "8F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 818, "floor": "8F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 819, "floor": "8F", "building": "東棟", "plan": "F14t(3LDK)", "color": "ラックス", "opt": ""}, {"no": 901, "floor": "9F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 902, "floor": "9F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 903, "floor": "9F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 904, "floor": "9F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 905, "floor": "9F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 906, "floor": "9F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 907, "floor": "9F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 908, "floor": "9F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 909, "floor": "9F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 910, "floor": "9F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 911, "floor": "9F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 912, "floor": "9F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 913, "floor": "9F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 914, "floor": "9F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 915, "floor": "9F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 916, "floor": "9F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 917, "floor": "9F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 918, "floor": "9F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}, {"no": 1001, "floor": "10F", "building": "南棟", "plan": "F16(3LDK)", "color": "モダン", "opt": ""}, {"no": 1002, "floor": "10F", "building": "南棟", "plan": "F9(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1003, "floor": "10F", "building": "南棟", "plan": "F10(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1004, "floor": "10F", "building": "南棟", "plan": "F9反(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1005, "floor": "10F", "building": "南棟", "plan": "F13(3LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1006, "floor": "10F", "building": "南棟", "plan": "F15(3LDK)", "color": "ラックス", "opt": ""}, {"no": 1007, "floor": "10F", "building": "南棟", "plan": "F6(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1008, "floor": "10F", "building": "南棟", "plan": "F6(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1009, "floor": "10F", "building": "南棟", "plan": "F7(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1010, "floor": "10F", "building": "南棟", "plan": "F7(2LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1011, "floor": "10F", "building": "南棟", "plan": "F7(2LDK)", "color": "モダン", "opt": ""}, {"no": 1012, "floor": "10F", "building": "南棟", "plan": "F8(2LDK)", "color": "ラックス", "opt": ""}, {"no": 1013, "floor": "10F", "building": "南棟", "plan": "F3", "color": "企画住戸", "opt": ""}, {"no": 1014, "floor": "10F", "building": "南棟", "plan": "F1標準(1LDK)", "color": "ラックス", "opt": ""}, {"no": 1015, "floor": "10F", "building": "南棟", "plan": "F1", "color": "企画住戸", "opt": ""}, {"no": 1016, "floor": "10F", "building": "南棟", "plan": "F2(1LDK)", "color": "ナチュラル", "opt": ""}, {"no": 1017, "floor": "10F", "building": "南棟", "plan": "F2(1LDK)", "color": "ラックス", "opt": ""}, {"no": 1018, "floor": "10F", "building": "南棟", "plan": "F4(2LDK)", "color": "モダン", "opt": ""}];
 
-const DEFAULT_STAFF = ['岩田','椎名'];
+// SITE.staff は {name, pin, admin} の配列（4桁PIN・管理者フラグ付き）。
+// 旧データ（文字列配列）は loadAll() 内で自動的にこの形式へ移行する。
+const DEFAULT_STAFF = [{name:'岩田', pin:'1010', admin:true}, {name:'椎名', pin:'', admin:false}];
 const DEFAULT_VENDORS = ['クロス業者','フロア業者','設備業者','内装業者'];
 
 let MASTER = [];      // [{no,floor,building,plan,color,opt}]
 let ROOMS = {};        // no -> {plan,color,opt,items:[{vd,vn,sd,sn}]}
 let SITE = {name:'京王多摩川開発B棟', staff: DEFAULT_STAFF.slice(), vendors: DEFAULT_VENDORS.slice()};
-let currentUser = {name:'岩田', role:'staff'};
+let currentUser = {name:'岩田', role:'staff'}; // 端末に表示名だけを覚えておくための軽量な値（権限判定には使わない）
+
+/* =========================================================
+   権限管理（簡易ログイン）
+   ---------------------------------------------------------
+   ・「職員確認」「部屋情報の編集」「設定」「取込」など、記録に残す必要の
+     ある操作はPINログインを要求する。
+   ・「業者確認」は協力会社が自主的に入力する一次情報なので、従来通り
+     ログイン無しで操作できる（最終判断は職員確認側で行う設計）。
+   ・ログイン状態は sessionStorage に保存し、タブ／端末を閉じると消える
+     （現場の共有タブレットを想定した「その場限りのログイン」）。
+   ・注意：これはあくまでUI上の権限制御であり、本当の意味での改ざん防止
+     には Firebase Database Rules 側での検証が必須（別途Firebase Console
+     で設定する）。PINは平文で保存されるため、社外秘の強固な認証情報とは
+     別のものとして運用すること。
+   ========================================================= */
+function getAuthed(){
+  try{ const v = sessionStorage.getItem('qc_authed'); return v? JSON.parse(v): null; }catch(e){ return null; }
+}
+function setAuthed(user){ sessionStorage.setItem('qc_authed', JSON.stringify(user)); }
+function clearAuthed(){ sessionStorage.removeItem('qc_authed'); }
+function isAdmin(){ const u = getAuthed(); return !!(u && u.admin); }
+
+function migrateStaffFormat(){
+  if(!Array.isArray(SITE.staff) || !SITE.staff.length) return false;
+  if(typeof SITE.staff[0] === 'object') return false; // 既に新形式
+  const hadOldFormat = SITE.staff.some(s=>typeof s === 'string');
+  SITE.staff = SITE.staff.map((n,i)=>({name:n, pin:'', admin:i===0}));
+  return hadOldFormat;
+}
+
+/* 職員ログイン（名前選択→PIN入力）。成功時はresolve({name,admin})、キャンセル時はresolve(null) */
+function requireStaffLogin(promptText){
+  const already = getAuthed();
+  if(already) return Promise.resolve(already);
+  return openLoginModal(promptText || t('loginPickPrompt'));
+}
+
+function openLoginModal(promptText){
+  return new Promise(resolve=>{
+    const overlay = el(`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:220;display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:340px;">
+        <div style="font-family:'Barlow Condensed';font-size:19px;color:var(--navy);margin-bottom:4px;">${t('loginModalTitle')}</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">${escapeHtml(promptText||'')}</div>
+        <div id="loginNames" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+        <div id="loginPinWrap" style="display:none;">
+          <input id="loginPin" type="password" inputmode="numeric" maxlength="8" placeholder="${t('pinPlaceholder')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:16px;letter-spacing:.1em;text-align:center;">
+          <div id="loginErr" style="color:var(--red);font-size:11.5px;margin-top:6px;height:14px;"></div>
+          <button class="panel-btn orange" id="loginOk" style="width:100%;margin-top:8px;">${t('loginOkBtn')}</button>
+        </div>
+        <button style="width:100%;margin-top:10px;background:none;border:none;color:var(--ink-soft);padding:8px;" id="loginCancel">${t('cancelBtn')}</button>
+      </div>
+    </div>`);
+    let picked = null;
+    const namesBox = overlay.querySelector('#loginNames');
+    SITE.staff.forEach(s=>{
+      const b = el(`<button style="border:1.5px solid var(--line);border-radius:20px;padding:8px 16px;font-size:13.5px;background:#fbfaf7;">${escapeHtml(s.name)}${s.admin?' 👑':''}</button>`);
+      b.onclick = ()=>{
+        picked = s;
+        overlay.querySelector('#loginPinWrap').style.display='block';
+        overlay.querySelector('#loginPin').value='';
+        overlay.querySelector('#loginPin').focus();
+      };
+      namesBox.appendChild(b);
+    });
+    const tryLogin = ()=>{
+      if(!picked) return;
+      const pin = overlay.querySelector('#loginPin').value.trim();
+      if((picked.pin||'') !== pin || !pin){
+        overlay.querySelector('#loginErr').textContent = t('pinWrongError');
+        return;
+      }
+      const user = {name:picked.name, admin:!!picked.admin};
+      setAuthed(user);
+      currentUser.name = picked.name; saveUser();
+      document.body.removeChild(overlay);
+      resolve(user);
+    };
+    overlay.querySelector('#loginOk').onclick = tryLogin;
+    overlay.querySelector('#loginPin').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+    overlay.querySelector('#loginCancel').onclick = ()=>{ document.body.removeChild(overlay); resolve(null); };
+    document.body.appendChild(overlay);
+  });
+}
+
+function logout(){
+  clearAuthed();
+  showToast(t('loggedOutToast'));
+  render();
+}
+
+/* =========================================================
+   端末記憶の業者名（マスター登録不要）
+   ---------------------------------------------------------
+   ・業者確認はSITE.vendorsのマスター登録に依存させず、この端末で
+     一度だけ名前を入力すれば、以降はlocalStorageに記憶された名前で
+     自動的に記録する（QRを読んでそのまま使い続けられるようにするため）。
+   ・複数人が同じ端末を使い回す場合は、トップバーの業者名ボタンから
+     いつでも変更できる。
+   ========================================================= */
+function getDeviceVendorName(){ return localStorage.getItem('qc_vendor_name') || ''; }
+function setDeviceVendorName(name){ localStorage.setItem('qc_vendor_name', name); }
+
+function promptVendorName(promptText, presetValue){
+  return new Promise(resolve=>{
+    const overlay = el(`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:215;display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:340px;">
+        <div style="font-family:'Barlow Condensed';font-size:19px;color:var(--navy);margin-bottom:4px;">${t('vendorNameModalTitle')}</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">${escapeHtml(promptText||'')}</div>
+        <input id="vnInput" value="${escapeHtml(presetValue||'')}" placeholder="${t('vendorNamePlaceholder')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:15px;">
+        <button class="panel-btn orange" id="vnOk" style="width:100%;margin-top:10px;">${t('pickDecideBtn')}</button>
+        <button style="width:100%;margin-top:8px;background:none;border:none;color:var(--ink-soft);padding:8px;" id="vnCancel">${t('cancelBtn')}</button>
+      </div>
+    </div>`);
+    const input = overlay.querySelector('#vnInput');
+    const submit = ()=>{
+      const v = input.value.trim();
+      if(!v) return;
+      document.body.removeChild(overlay);
+      resolve(v);
+    };
+    overlay.querySelector('#vnOk').onclick = submit;
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    overlay.querySelector('#vnCancel').onclick = ()=>{ document.body.removeChild(overlay); resolve(null); };
+    document.body.appendChild(overlay);
+    setTimeout(()=>{ input.focus(); input.select(); }, 50);
+  });
+}
+
+function authedLabel(){
+  const u = getAuthed();
+  if(!u) return t('loginBtn');
+  return t('loggedInFmt', {name:escapeHtml(u.name), adminTag: u.admin?t('adminTag'):''});
+}
 let buildingFilter = 'all';
 let floorFilter = 'all';
 let route = {view:'dashboard', room:null};
@@ -252,10 +662,17 @@ const FIREBASE_CONFIG = {
 };
 
 let fbDb = null;
+let fbReady = null; // 匿名認証完了を待つPromise（Firebase Rulesでauth!=nullを必須にするため）
 if(USE_FIREBASE && typeof firebase !== 'undefined'){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
     fbDb = firebase.database();
+    // 匿名認証：これにより「URLとAPIキーを知っているだけの第三者」がRealtime Databaseへ
+    // 直接読み書きすることを防ぐ（Database RulesでALLOW条件をauth!=nullにするのが前提）。
+    // ※ Firebase Consoleの Authentication > Sign-in method で「匿名」を有効化してください。
+    fbReady = firebase.auth().signInAnonymously()
+      .then(()=>true)
+      .catch(e=>{ console.error('匿名認証失敗', e); showToast && showToast('認証に失敗しました（オフライン保存になります）'); return false; });
   }catch(e){ console.error('Firebase初期化失敗', e); }
 }
 
@@ -314,6 +731,7 @@ const Store = {
 };
 
 async function loadAll(){
+  if(fbReady) await fbReady; // 匿名認証の完了を待ってからDB読み書きする
   MASTER = await Store.getMaster() || [];
   if(!MASTER.length){
     MASTER = SEED_ROOMS.map(s=>({no:s.no, floor:s.floor, building:s.building||'', plan:s.plan, color:s.color, opt:s.opt}));
@@ -333,12 +751,23 @@ async function loadAll(){
 
   const site = await Store.getSite();
   if(site) SITE = site;
+  if(migrateStaffFormat()) await saveSite();
+
+  // 2026-08改訂：チェック項目を15項目→23工程・42項目へ全面差し替え。
+  // 旧項目とは対応関係がないため、スキーマ番号が古い場合は全室のチェック
+  // 記録（vd/vn/sd/sn）だけを空にリセットする（部屋情報plan/color/optは維持）。
+  const needsItemsReset = (SITE.itemsSchemaVersion||1) !== ITEMS_SCHEMA_VERSION;
 
   const ids = await Store.listRoomIds();
   const loadedNos = new Set();
   for(const id of ids){
     const r = await Store.getRoom(id);
-    if(r){ r.items = normalizeRoomItems(r.items); ROOMS[id] = r; loadedNos.add(String(id)); }
+    if(r){
+      r.items = needsItemsReset ? emptyItems() : normalizeRoomItems(r.items);
+      ROOMS[id] = r;
+      loadedNos.add(String(id));
+      if(needsItemsReset) await saveRoom(id); // サーバ側（Firebase）にも反映し、他端末にも波及させる
+    }
   }
   // マスタにあるがまだ保存されていない部屋はシード or 空データで初期化
   for(const m of MASTER){
@@ -346,6 +775,11 @@ async function loadAll(){
       const seed = SEED_ROOMS.find(s=>String(s.no)===String(m.no));
       ROOMS[m.no] = seed ? roomFromSeed(seed) : {plan:m.plan||'', color:m.color||'', opt:m.opt||'', items: emptyItems()};
     }
+  }
+  if(needsItemsReset){
+    SITE.itemsSchemaVersion = ITEMS_SCHEMA_VERSION;
+    await saveSite();
+    showToast(t('itemsResetToast'));
   }
   const u = Store.getUser();
   if(u) currentUser = u;
@@ -369,6 +803,36 @@ async function saveRoom(no){ await Store.setRoom(no, ROOMS[no]); }
 async function saveUser(){ Store.setUser(currentUser); }
 
 /* =========================================================
+   操作履歴（監査ログ）
+   ---------------------------------------------------------
+   誰が・いつ・どの部屋のどの項目を・業者確認/職員確認のどちらを・
+   記録／取消したかを残す。「誰がいつチェックを外したか」まで追える
+   ようにするための最低限のログ。
+   ========================================================= */
+async function addLog(entry){
+  entry.ts = Date.now();
+  const b = Store.backend();
+  if(b==='firebase'){ try{ await fbDb.ref('logs').push(entry); }catch(e){ console.error('ログ保存失敗', e); } return; }
+  const key='qc_logs';
+  const arr = JSON.parse(localStorage.getItem(key)||'[]');
+  arr.push(entry);
+  localStorage.setItem(key, JSON.stringify(arr.slice(-1000)));
+}
+async function fetchLogs(limit){
+  limit = limit || 300;
+  const b = Store.backend();
+  if(b==='firebase'){
+    try{
+      const snap = await fbDb.ref('logs').limitToLast(limit).get();
+      if(!snap.exists()) return [];
+      return Object.values(snap.val()).sort((a,b)=>b.ts-a.ts);
+    }catch(e){ console.error('ログ取得失敗', e); return []; }
+  }
+  const arr = JSON.parse(localStorage.getItem('qc_logs')||'[]');
+  return arr.slice(-limit).reverse();
+}
+
+/* =========================================================
    ステータス判定
    ========================================================= */
 function roomStatus(no){
@@ -381,6 +845,22 @@ function roomStatus(no){
   if(done===ITEMS.length) state='done';
   else if(done>0 || vendor>0) state='partial';
   return {done, vendor, total: ITEMS.length, state};
+}
+
+// 工程番号（ITEMS[].g）の並び順（重複除去）
+const GROUP_NOS = [...new Set(ITEMS.map(it=>it.g))];
+
+// 「ひとかたまり」単位の進捗（ロックはしない。目安表示のみ）
+function groupStatus(room, g){
+  const idxs = [];
+  ITEMS.forEach((it,i)=>{ if(it.g===g) idxs.push(i); });
+  const items = room.items;
+  let done=0;
+  idxs.forEach(i=>{ if(items[i] && items[i].sd) done++; });
+  let state = 'none';
+  if(done===idxs.length) state='done';
+  else if(done>0) state='partial';
+  return {done, total: idxs.length, state};
 }
 
 function overallProgress(){
@@ -399,6 +879,7 @@ function parseHash(){
   if(parts[0]==='import') return {view:'import'};
   if(parts[0]==='labels') return {view:'labels'};
   if(parts[0]==='settings') return {view:'settings'};
+  if(parts[0]==='history') return {view:'history'};
   return {view:'dashboard'};
 }
 window.addEventListener('hashchange', ()=>{ route = parseHash(); render(); window.scrollTo(0,0); });
@@ -427,15 +908,28 @@ function todayStr(){
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
 
+const ADMIN_ONLY_VIEWS = ['import','settings'];
+const STAFF_ONLY_VIEWS = ['history'];
+
 function renderApp(){
   const app = document.getElementById('app');
   app.innerHTML = '';
+
+  if(ADMIN_ONLY_VIEWS.includes(route.view) && !isAdmin()){
+    showToast(t('needAdminLoginToast'));
+    route = {view:'dashboard'};
+  } else if(STAFF_ONLY_VIEWS.includes(route.view) && !getAuthed()){
+    showToast(t('needStaffLoginToast'));
+    route = {view:'dashboard'};
+  }
+
   app.appendChild(buildTopbar());
   if(route.view==='dashboard') app.appendChild(buildDashboard());
   else if(route.view==='room') app.appendChild(buildDetail(route.room));
   else if(route.view==='import') app.appendChild(buildImport());
   else if(route.view==='labels') app.appendChild(buildLabels());
   else if(route.view==='settings') app.appendChild(buildSettings());
+  else if(route.view==='history') app.appendChild(buildHistory());
   app.appendChild(buildFabNav());
 }
 function render(){ renderApp(); }
@@ -452,34 +946,51 @@ function buildTopbar(){
   const wrap = el(`<div class="topbar">
     <div class="topbar-row">
       <div class="site-title">
-        <div class="eyebrow">居室チェックシート・WEB版</div>
+        <div class="eyebrow">${t('appEyebrow')}</div>
         <div class="name">${SITE.name}</div>
       </div>
       <div class="topbar-btns no-print">
-        <button class="icon-btn" id="btnUser">👤 ${currentUser.name}</button>
+        <button class="icon-btn" id="btnLang">${LANG==='ja' ? '🌐 한국어' : '🌐 日本語'}</button>
+        <button class="icon-btn" id="btnVendorName">🔧 ${escapeHtml(truncateLabel(getDeviceVendorName(), 8) || t('vendorNameNotSet'))}</button>
+        <button class="icon-btn" id="btnUser">${authedLabel()}</button>
       </div>
     </div>
     <div class="progress-wrap">
       <div class="progress-num">
         <div class="big">${pct}%</div>
-        <div class="sub">${prog.done} / ${prog.total} 項目完了　（${MASTER.length}室）</div>
+        <div class="sub">${t('progressDoneFmt',{done:prog.done, total:prog.total, rooms:MASTER.length})}</div>
       </div>
       <div class="progress-bar">
         <div style="width:${pct}%;background:var(--green)"></div>
       </div>
       <div class="progress-legend">
-        <span><span class="dot" style="background:#8a95a5"></span>未着手</span>
-        <span><span class="dot" style="background:var(--yellow)"></span>業者確認済</span>
-        <span><span class="dot" style="background:var(--green)"></span>職員承認済</span>
+        <span><span class="dot" style="background:#8a95a5"></span>${t('legendNone')}</span>
+        <span><span class="dot" style="background:var(--yellow)"></span>${t('legendVendor')}</span>
+        <span><span class="dot" style="background:var(--green)"></span>${t('legendStaff')}</span>
       </div>
     </div>
   </div>`);
-  wrap.querySelector('#btnUser').onclick = openUserPicker;
+  wrap.querySelector('#btnLang').onclick = ()=>{ setLang(LANG==='ja' ? 'ko' : 'ja'); };
+  wrap.querySelector('#btnVendorName').onclick = async ()=>{
+    const current = getDeviceVendorName();
+    const name = await promptVendorName(t('vendorNameChangePrompt'), current);
+    if(name){ setDeviceVendorName(name); showToast(t('vendorNameSavedToast')); render(); }
+  };
+  wrap.querySelector('#btnUser').onclick = async ()=>{
+    const authed = getAuthed();
+    if(authed){
+      const ok = await confirmDialog(t('logoutConfirmFmt',{name:authed.name}));
+      if(ok) logout();
+    } else {
+      await openLoginModal(t('loginPickPrompt'));
+      render();
+    }
+  };
 
   const buildings = [...new Set(MASTER.map(m=>m.building).filter(Boolean))];
   const buildingBar = el(`<div class="filters no-print" style="padding-bottom:4px;"></div>`);
   if(buildings.length){
-    const allB = el(`<button class="chip-filter ${buildingFilter==='all'?'active':''}">全棟</button>`);
+    const allB = el(`<button class="chip-filter ${buildingFilter==='all'?'active':''}">${t('allBuildings')}</button>`);
     allB.onclick=()=>{buildingFilter='all'; floorFilter='all'; render();};
     buildingBar.appendChild(allB);
     buildings.forEach(b=>{
@@ -492,7 +1003,7 @@ function buildTopbar(){
   const scoped = buildingFilter==='all' ? MASTER : MASTER.filter(m=>m.building===buildingFilter);
   const floors = [...new Set(scoped.map(m=>m.floor))].sort((a,b)=>parseInt(a)-parseInt(b));
   const filterBar = el(`<div class="filters no-print"></div>`);
-  const allChip = el(`<button class="chip-filter ${floorFilter==='all'?'active':''}">全フロア</button>`);
+  const allChip = el(`<button class="chip-filter ${floorFilter==='all'?'active':''}">${t('allFloors')}</button>`);
   allChip.onclick=()=>{floorFilter='all';render();};
   filterBar.appendChild(allChip);
   floors.forEach(f=>{
@@ -511,9 +1022,9 @@ function buildDashboard(){
   const holder = document.createElement('div');
   if(!MASTER.length){
     holder.appendChild(el(`<div class="empty-state">
-      <div class="big">部屋データがありません</div>
-      <div>CSV / Excel を取り込んで開始してください</div>
-      <button class="cta-btn" onclick="go('import')">取り込み画面へ</button>
+      <div class="big">${t('emptyMasterTitle')}</div>
+      <div>${t('emptyMasterSub')}</div>
+      <button class="cta-btn" onclick="go('import')">${t('goImport')}</button>
     </div>`));
     return holder;
   }
@@ -532,7 +1043,7 @@ function buildDashboard(){
       const doneCount = list2.filter(r=>roomStatus(r.no).state==='done').length;
       const label = (buildingFilter==='all' && b) ? `${f}（${b}）` : f;
       const block = el(`<div class="floor-block">
-        <div class="floor-head"><span class="fnum">${label}</span><span class="fcount">${doneCount}/${list2.length} 室 完了</span></div>
+        <div class="floor-head"><span class="fnum">${label}</span><span class="fcount">${t('floorDoneFmt',{done:doneCount,total:list2.length})}</span></div>
         <div class="room-grid"></div>
       </div>`);
       const grid = block.querySelector('.room-grid');
@@ -564,7 +1075,7 @@ function buildDetail(no){
   const holder = document.createElement('div');
   const m = MASTER.find(x=>String(x.no)===String(no));
   if(!m || !ROOMS[no]){
-    holder.appendChild(el(`<div class="empty-state"><div class="big">${no}号室が見つかりません</div><button class="cta-btn" onclick="go('dashboard')">一覧に戻る</button></div>`));
+    holder.appendChild(el(`<div class="empty-state"><div class="big">${t('roomNotFoundFmt',{no})}</div><button class="cta-btn" onclick="go('dashboard')">${t('backToList')}</button></div>`));
     return holder;
   }
   const room = ROOMS[no];
@@ -573,45 +1084,64 @@ function buildDetail(no){
 
   const header = el(`<div class="detail-header">
     <div class="back-row">
-      <button class="back-btn" onclick="go('dashboard')">← 一覧に戻る</button>
+      <button class="back-btn" onclick="go('dashboard')">${t('backToListArrow')}</button>
       <div class="detail-actions no-print">
-        <button class="icon-btn" id="btnQr">QR表示</button>
+        <button class="icon-btn" id="btnQr">${t('showQr')}</button>
       </div>
     </div>
     <div class="detail-title">
-      <div><span class="no">${no}</span><span class="suffix">号室 ／ ${m.building||''}${m.floor}</span></div>
-      <div style="font-size:12px;color:#b9c7d5;">${s.done}/${s.total} 完了</div>
+      <div><span class="no">${no}</span><span class="suffix">${t('roomSuffixFmt',{loc:(m.building||'')+m.floor})}</span></div>
+      <div style="font-size:12px;color:#b9c7d5;">${t('doneCountFmt',{done:s.done,total:s.total})}</div>
     </div>
   </div>`);
 
   const info = el(`<div class="info-card">
-    <div class="info-field"><label>メニュープラン</label><input id="f-plan" value="${escapeHtml(room.plan)}"></div>
-    <div class="info-field"><label>カラーセレクト</label><input id="f-color" value="${escapeHtml(room.color)}"></div>
-    <div class="info-field full"><label>オプション</label><input id="f-opt" value="${escapeHtml(room.opt)}"></div>
+    <div class="info-field"><label>${t('fieldPlan')}</label><input id="f-plan" value="${escapeHtml(room.plan)}"></div>
+    <div class="info-field"><label>${t('fieldColor')}</label><input id="f-color" value="${escapeHtml(room.color)}"></div>
+    <div class="info-field full"><label>${t('fieldOpt')}</label><input id="f-opt" value="${escapeHtml(room.opt)}"></div>
   </div>`);
   ['f-plan','f-color','f-opt'].forEach(id=>{
     info.querySelector('#'+id).addEventListener('change', async (e)=>{
       const map = {'f-plan':'plan','f-color':'color','f-opt':'opt'};
+      const authed = await requireStaffLogin(t('staffEditLoginPrompt'));
+      if(!authed){ e.target.value = room[map[id]]; return; }
       room[map[id]] = e.target.value;
       m[map[id]] = e.target.value;
       await saveRoom(no); await saveMaster();
-      showToast('保存しました');
+      showToast(t('savedToast'));
     });
   });
 
   const checklist = el(`<div class="checklist"></div>`);
-  ITEMS.forEach((name, idx)=>{
+  checklist.appendChild(el(`<div class="trade-legend">
+    <span class="lbl">${t('tradeLegendTitle')}：</span>
+    <span class="trade-badge build">${t('tradeBuild')}</span>
+    <span class="trade-badge equip">${t('tradeEquip')}</span>
+    <span class="trade-badge elec">${t('tradeElec')}</span>
+  </div>`));
+  let lastGroup = null;
+  ITEMS.forEach((meta, idx)=>{
     const it = room.items[idx];
+    if(meta.g !== lastGroup){
+      lastGroup = meta.g;
+      const gs = groupStatus(room, meta.g);
+      const chipLabel = gs.state==='done' ? t('statusDone') : (gs.state==='partial' ? t('statusPartial') : t('statusNone'));
+      checklist.appendChild(el(`<div class="group-head">
+        <span class="gname">${t('groupLabelFmt',{g:meta.g})}</span>
+        <span class="group-chip ${gs.state}">${chipLabel}（${gs.done}/${gs.total}）</span>
+      </div>`));
+    }
+    const tradeLabel = meta.trade==='equip' ? t('tradeEquip') : (meta.trade==='elec' ? t('tradeElec') : t('tradeBuild'));
     const row = el(`<div class="check-row">
-      <div class="item-name">${idx+1}. ${name}</div>
+      <div class="item-name">${meta.s}. ${itemName(idx)}<span class="trade-badge ${meta.trade}">${tradeLabel}</span></div>
       <div class="confirm-pair">
         <button class="confirm-btn vendor ${it.vd?'filled':''}" data-kind="vendor" data-idx="${idx}">
-          <div class="k">業者確認</div>
-          <div class="v">${it.vd ? it.vd+' '+(it.vn||'') : 'タップして記録'}</div>
+          <div class="k">${t('labelVendorConfirm')}</div>
+          <div class="v">${it.vd ? it.vd+' '+(it.vn||'') : t('tapToRecord')}</div>
         </button>
         <button class="confirm-btn staff ${it.sd?'filled':''}" data-kind="staff" data-idx="${idx}">
-          <div class="k">職員確認</div>
-          <div class="v">${it.sd ? it.sd+' '+(it.sn||'') : 'タップして記録'}</div>
+          <div class="k">${t('labelStaffConfirm')}</div>
+          <div class="v">${it.sd ? it.sd+' '+(it.sn||'') : t('tapToRecord')}</div>
         </button>
       </div>
     </div>`);
@@ -622,11 +1152,11 @@ function buildDetail(no){
   });
 
   const qr = el(`<div class="qr-card" id="qrCard" style="display:none;">
-    <div style="font-family:'Barlow Condensed';font-size:20px;color:var(--navy);">${no}号室 QRラベル</div>
+    <div style="font-family:'Barlow Condensed';font-size:20px;color:var(--navy);">${t('qrTitleFmt',{no})}</div>
     <div id="qrbox"></div>
-    <div class="hint">現地掲示用。スマホでスキャンするとこの画面に直接遷移します。<br>本番運用では公開URLでホスティングしてください。</div>
+    <div class="hint">${t('qrHint')}</div>
     <div class="link" id="qrlink"></div>
-    <button class="panel-btn no-print" style="margin-top:10px;" onclick="window.print()">🖨 このラベルを印刷</button>
+    <button class="panel-btn no-print" style="margin-top:10px;" onclick="window.print()">${t('printThisLabel')}</button>
   </div>`);
 
   holder.appendChild(header);
@@ -655,6 +1185,11 @@ function escapeHtml(s){
   return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function truncateLabel(s, n){
+  if(!s) return s;
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
 // 掲示用チェックシートのカラーセレクト表示用の背景色
 function colorTypeBg(name){
   const map = {
@@ -669,30 +1204,47 @@ function colorTypeBg(name){
 async function toggleConfirm(no, idx, kind){
   const room = ROOMS[no];
   const it = room.items[idx];
+  const itemNameJa = (ITEMS[idx]||{}).ja || ''; // 監査ログには言語に依存しない基準表記（日本語）で保存する
+  let action, actor, prevValue;
+
   if(kind==='vendor'){
+    // 業者確認：協力会社の一次申告なのでログインは要求しない（最終判断は職員確認側で行う）
     if(it.vd){
-      const ok = await confirmDialog(`「業者確認（${it.vd} ${it.vn||''}）」を取り消しますか？`);
+      const ok = await confirmDialog(t('vendorUnsetConfirmFmt',{val:`${it.vd} ${it.vn||''}`}));
       if(!ok) return;
+      const prevVendorName = it.vn;
+      prevValue = `${it.vd} ${it.vn||''}`.trim();
       it.vd=''; it.vn='';
+      action='unset'; actor = (prevVendorName || t('unrecordedName')) + t('noLoginTag');
     } else {
-      const name = await pickName(SITE.vendors, '業者を選択');
-      if(name===null) return;
+      let name = getDeviceVendorName();
+      if(!name){
+        name = await promptVendorName(t('vendorNameFirstTimePrompt'));
+        if(!name) return;
+        setDeviceVendorName(name);
+      }
       it.vd = todayStr(); it.vn = name;
+      action='set'; actor = name;
     }
   } else {
+    // 職員確認：品質判断の最終ゲートなので、PINログインした本人の名前でしか記録できないようにする
+    const authed = await requireStaffLogin(t('staffConfirmLoginPrompt'));
+    if(!authed) return;
     if(it.sd){
-      const ok = await confirmDialog(`「職員確認（${it.sd} ${it.sn||''}）」を取り消しますか？`);
+      const ok = await confirmDialog(t('staffUnsetConfirmFmt',{val:`${it.sd} ${it.sn||''}`, actor:authed.name}));
       if(!ok) return;
+      prevValue = `${it.sd} ${it.sn||''}`.trim();
       it.sd=''; it.sn='';
+      action='unset'; actor = authed.name;
     } else {
-      const name = await pickName(SITE.staff, '確認職員を選択');
-      if(name===null) return;
-      it.sd = todayStr(); it.sn = name;
+      it.sd = todayStr(); it.sn = authed.name; // 名前は選択式ではなく、ログイン中の本人固定
+      action='set'; actor = authed.name;
     }
   }
   await saveRoom(no);
+  await addLog({no:String(no), idx, item:itemNameJa, schema:ITEMS_SCHEMA_VERSION, kind, action, actor, prevValue: prevValue||''});
   render();
-  showToast('更新しました');
+  showToast(t('updatedToast'));
 }
 
 /* 簡易確認ダイアログ（はい/キャンセル） */
@@ -700,10 +1252,10 @@ function confirmDialog(message){
   return new Promise(resolve=>{
     const overlay = el(`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;display:flex;align-items:center;justify-content:center;padding:20px;">
       <div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:360px;text-align:center;">
-        <div style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:16px;">${escapeHtml(message)}</div>
+        <div style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:16px;white-space:pre-line;">${escapeHtml(message)}</div>
         <div style="display:flex;gap:8px;">
-          <button id="cfCancel" style="flex:1;border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:10px;font-size:13px;color:var(--ink-soft);">キャンセル</button>
-          <button id="cfOk" style="flex:1;border:none;background:var(--red);color:#fff;border-radius:8px;padding:10px;font-size:13px;font-weight:700;">取り消す</button>
+          <button id="cfCancel" style="flex:1;border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:10px;font-size:13px;color:var(--ink-soft);">${t('cancelBtn')}</button>
+          <button id="cfOk" style="flex:1;border:none;background:var(--red);color:#fff;border-radius:8px;padding:10px;font-size:13px;font-weight:700;">${t('confirmCancelBtn')}</button>
         </div>
       </div>
     </div>`);
@@ -721,10 +1273,10 @@ function pickName(list, title){
         <div style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin-bottom:10px;">${title}</div>
         <div id="pickList" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         <div style="display:flex;gap:8px;margin-top:12px;">
-          <input id="pickCustom" placeholder="その他（自由入力）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
-          <button class="panel-btn orange" id="pickCustomBtn">決定</button>
+          <input id="pickCustom" placeholder="${t('pickOtherPlaceholder')}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+          <button class="panel-btn orange" id="pickCustomBtn">${t('pickDecideBtn')}</button>
         </div>
-        <button style="width:100%;margin-top:10px;background:none;border:none;color:var(--ink-soft);padding:8px;" id="pickCancel">キャンセル</button>
+        <button style="width:100%;margin-top:10px;background:none;border:none;color:var(--ink-soft);padding:8px;" id="pickCancel">${t('cancelBtn')}</button>
       </div>
     </div>`);
     const plist = overlay.querySelector('#pickList');
@@ -743,39 +1295,31 @@ function pickName(list, title){
   });
 }
 
-function openUserPicker(){
-  pickName(SITE.staff, '担当者を選択').then(name=>{
-    if(name){ currentUser.name=name; saveUser(); render(); }
-  });
-}
-
 /* =========================================================
    レンダリング — 取り込み
    ========================================================= */
 function buildImport(){
   const holder = document.createElement('div');
   const panel = el(`<div class="panel">
-    <h2>部屋マスタ取り込み</h2>
-    <p class="desc">現場の全戸分（号室・メニュープラン・カラーセレクト・オプション・棟）を一括で取り込みます。既存のExcel（仕上チェック表）や、CSVをそのまま利用できます。<br>
-    CSV列順：<b>号室, フロア, メニュープラン, カラーセレクト, オプション, 棟</b>（棟は省略可。1行目はヘッダーとして無視されます）</p>
+    <h2>${t('importTitle')}</h2>
+    <p class="desc">${t('importDesc')}</p>
 
     <div class="drop-zone">
-      <div>📄 Excel(.xlsx) / CSV ファイルを選択</div>
+      <div>${t('dropZoneLabel')}</div>
       <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
     </div>
 
     <div style="margin-top:18px;">
-      <label style="font-size:12px;color:var(--ink-soft);">またはCSVを直接貼り付け：</label>
-      <textarea class="csv-input" id="csvText" placeholder="901,9F,基本,リュクスホワイト,無し
-902,9F,メニュー2,セピアブラウン,有り"></textarea>
-      <button class="panel-btn" id="btnParseCsv">この内容を取り込む</button>
+      <label style="font-size:12px;color:var(--ink-soft);">${t('pasteCsvLabel')}</label>
+      <textarea class="csv-input" id="csvText" placeholder="${t('csvTextareaPlaceholder')}"></textarea>
+      <button class="panel-btn" id="btnParseCsv">${t('parseCsvBtn')}</button>
     </div>
 
     <div class="import-log" id="importLog" style="display:none;"></div>
 
     <div style="margin-top:24px;">
-      <button class="panel-btn orange" id="btnExportCsv">現在のマスタをCSVで書き出す</button>
-      <button class="panel-btn" id="btnExportProgress" style="margin-left:8px;">進捗状況を一括出力（CSV）</button>
+      <button class="panel-btn orange" id="btnExportCsv">${t('exportMasterCsvBtn')}</button>
+      <button class="panel-btn" id="btnExportProgress" style="margin-left:8px;">${t('exportProgressCsvBtn')}</button>
     </div>
   </div>`);
 
@@ -794,16 +1338,17 @@ function buildImport(){
 }
 
 function exportProgressCsv(){
-  const header = ['号室','棟','フロア','メニュープラン','カラーセレクト','オプション','完了数','項目数','進捗率','ステータス'];
-  ITEMS.forEach((name,i)=>{
-    header.push(`${i+1}.${name}_業者日付`, `${i+1}.${name}_業者確認者`, `${i+1}.${name}_職員日付`, `${i+1}.${name}_職員確認者`);
+  const header = [t('csvHeadNo'),t('csvHeadBuilding'),t('csvHeadFloor'),t('csvHeadPlan'),t('csvHeadColor'),t('csvHeadOpt'),t('csvHeadDone'),t('csvHeadTotal'),t('csvHeadPct'),t('csvHeadStatus')];
+  ITEMS.forEach((meta,i)=>{
+    const name = itemName(i);
+    header.push(`${meta.s}.${name}_${t('csvVendorDate')}`, `${meta.s}.${name}_${t('csvVendorName')}`, `${meta.s}.${name}_${t('csvStaffDate')}`, `${meta.s}.${name}_${t('csvStaffName')}`);
   });
   const rows = [header];
   MASTER.slice().sort((a,b)=>a.no-b.no).forEach(m=>{
     const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
     const s = roomStatus(m.no);
     const pct = s.total ? Math.round(s.done/s.total*100) : 0;
-    const statusLabel = s.state==='done' ? '完了' : (s.state==='partial' ? '一部完了' : '未着手');
+    const statusLabel = s.state==='done' ? t('statusDone') : (s.state==='partial' ? t('statusPartial') : t('statusNone'));
     const row = [m.no, m.building||'', m.floor, room.plan, room.color, room.opt, s.done, s.total, pct+'%', statusLabel];
     room.items.forEach(it=>{ row.push(it.vd||'', it.vn||'', it.sd||'', it.sn||''); });
     rows.push(row);
@@ -815,7 +1360,7 @@ function exportProgressCsv(){
   a.href = url; a.download = `進捗状況_${SITE.name}_${todayStr().replace('/','-')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('進捗状況を出力しました');
+  showToast(t('progressExportedToast'));
 }
 
 /* =========================================================
@@ -824,26 +1369,28 @@ function exportProgressCsv(){
 function buildSettings(){
   const holder = document.createElement('div');
   const panel = el(`<div class="panel">
-    <h2>設定</h2>
-    <p class="desc">現場名や、業者確認・職員確認の際に選択できる名前のマスターを管理します。ここで登録した名前が、号室詳細画面の確認者選択に反映されます。</p>
+    <h2>${t('settingsTitle')}</h2>
+    <p class="desc">${t('settingsDesc')}</p>
 
     <div class="info-field full" style="margin-bottom:18px;max-width:360px;">
-      <label>現場名</label>
+      <label>${t('siteNameLabel')}</label>
       <input id="siteName" value="${escapeHtml(SITE.name)}">
     </div>
 
-    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:18px 0 6px;">職員（確認者）マスター</h3>
-    <div id="staffChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
-    <div style="display:flex;gap:8px;">
-      <input id="newStaff" placeholder="職員名を追加（例：椎名）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
-      <button class="panel-btn" id="btnAddStaff">追加</button>
+    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:18px 0 6px;">${t('staffMasterHeader')}</h3>
+    <p class="desc" style="margin-bottom:8px;">${t('staffMasterDesc')}</p>
+    <div id="staffRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <input id="newStaff" placeholder="${t('newStaffPlaceholder')}" style="flex:1;min-width:100px;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <input id="newStaffPin" placeholder="${t('newStaffPinPlaceholder')}" inputmode="numeric" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <button class="panel-btn" id="btnAddStaff">${t('addBtn')}</button>
     </div>
 
-    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:22px 0 6px;">業者マスター</h3>
+    <h3 style="font-family:'Barlow Condensed';font-size:18px;color:var(--navy);margin:22px 0 6px;">${t('vendorMasterHeader')}</h3>
     <div id="vendorChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
     <div style="display:flex;gap:8px;">
-      <input id="newVendor" placeholder="業者名を追加（例：〇〇クロス）" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
-      <button class="panel-btn" id="btnAddVendor">追加</button>
+      <input id="newVendor" placeholder="${t('newVendorPlaceholder')}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;">
+      <button class="panel-btn" id="btnAddVendor">${t('addBtn')}</button>
     </div>
   </div>`);
 
@@ -853,36 +1400,62 @@ function buildSettings(){
     return c;
   }
 
-  function renderChips(){
-    const sBox = panel.querySelector('#staffChips'); sBox.innerHTML='';
-    SITE.staff.forEach(n=>{
-      sBox.appendChild(chip(n, async ()=>{
-        SITE.staff = SITE.staff.filter(x=>x!==n);
-        await saveSite(); renderChips(); showToast('削除しました');
-      }));
+  function renderStaffRows(){
+    const box = panel.querySelector('#staffRows'); box.innerHTML='';
+    SITE.staff.forEach((s,i)=>{
+      const row = el(`<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fbfaf7;flex-wrap:wrap;">
+        <div style="min-width:64px;font-size:13.5px;font-weight:700;">${escapeHtml(s.name)}</div>
+        <input class="stf-pin" data-i="${i}" value="${escapeHtml(s.pin||'')}" placeholder="${t('pinNotSetPlaceholder')}" inputmode="numeric" style="width:100px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-soft);"><input type="checkbox" class="stf-admin" data-i="${i}" ${s.admin?'checked':''}> ${t('adminLabel')}</label>
+        <button class="stf-del" data-i="${i}" style="margin-left:auto;border:none;background:var(--red-bg);color:var(--red);width:22px;height:22px;border-radius:50%;font-size:12px;">×</button>
+      </div>`);
+      box.appendChild(row);
     });
+    box.querySelectorAll('.stf-pin').forEach(inp=>{
+      inp.addEventListener('change', async ()=>{
+        SITE.staff[Number(inp.dataset.i)].pin = inp.value.trim();
+        await saveSite(); showToast(t('pinUpdatedToast'));
+      });
+    });
+    box.querySelectorAll('.stf-admin').forEach(cb=>{
+      cb.addEventListener('change', async ()=>{
+        SITE.staff[Number(cb.dataset.i)].admin = cb.checked;
+        await saveSite(); showToast(t('permUpdatedToast'));
+      });
+    });
+    box.querySelectorAll('.stf-del').forEach(btn=>{
+      btn.onclick = async ()=>{
+        SITE.staff.splice(Number(btn.dataset.i),1);
+        await saveSite(); renderStaffRows(); showToast(t('deletedToast'));
+      };
+    });
+  }
+
+  function renderVendorChips(){
     const vBox = panel.querySelector('#vendorChips'); vBox.innerHTML='';
     SITE.vendors.forEach(n=>{
       vBox.appendChild(chip(n, async ()=>{
         SITE.vendors = SITE.vendors.filter(x=>x!==n);
-        await saveSite(); renderChips(); showToast('削除しました');
+        await saveSite(); renderVendorChips(); showToast(t('deletedToast'));
       }));
     });
   }
-  renderChips();
+  renderStaffRows();
+  renderVendorChips();
 
   panel.querySelector('#siteName').addEventListener('change', async (e)=>{
     SITE.name = e.target.value.trim() || SITE.name;
     await saveSite();
-    showToast('保存しました');
+    showToast(t('savedToast'));
   });
   panel.querySelector('#btnAddStaff').onclick = async ()=>{
     const inp = panel.querySelector('#newStaff');
+    const pinInp = panel.querySelector('#newStaffPin');
     const v = inp.value.trim();
     if(!v) return;
-    if(!SITE.staff.includes(v)) SITE.staff.push(v);
-    inp.value='';
-    await saveSite(); renderChips(); showToast('追加しました');
+    if(!SITE.staff.some(s=>s.name===v)) SITE.staff.push({name:v, pin:pinInp.value.trim(), admin:false});
+    inp.value=''; pinInp.value='';
+    await saveSite(); renderStaffRows(); showToast(t('addedToast'));
   };
   panel.querySelector('#btnAddVendor').onclick = async ()=>{
     const inp = panel.querySelector('#newVendor');
@@ -890,7 +1463,7 @@ function buildSettings(){
     if(!v) return;
     if(!SITE.vendors.includes(v)) SITE.vendors.push(v);
     inp.value='';
-    await saveSite(); renderChips(); showToast('追加しました');
+    await saveSite(); renderVendorChips(); showToast(t('addedToast'));
   };
 
   holder.appendChild(panel);
@@ -921,7 +1494,7 @@ function handleFileImport(e){
         importRows(rows, logBox);
       }catch(err){
         logBox.style.display='block';
-        logBox.textContent = '読み込みエラー: '+err.message;
+        logBox.textContent = t('importReadErrorFmt',{msg:err.message});
       }
     };
     reader.readAsArrayBuffer(file);
@@ -948,13 +1521,13 @@ async function importRows(rows, logBox){
   await saveMaster();
   if(logBox){
     logBox.style.display='block';
-    logBox.textContent = `取り込み完了：新規 ${added}室 / 更新 ${updated}室 / 合計 ${MASTER.length}室`;
+    logBox.textContent = t('importDoneFmt',{added, updated, total:MASTER.length});
   }
-  showToast('取り込みました');
+  showToast(t('importedToast'));
 }
 
 function exportCsv(){
-  const rows = [['号室','フロア','メニュープラン','カラーセレクト','オプション','棟']];
+  const rows = [[t('csvHeadNo'),t('csvHeadFloor'),t('csvHeadPlan'),t('csvHeadColor'),t('csvHeadOpt'),t('csvHeadBuilding')]];
   MASTER.sort((a,b)=>a.no-b.no).forEach(m=>rows.push([m.no,m.floor,m.plan,m.color,m.opt,m.building||'']));
   const csv = Papa.unparse(rows);
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
@@ -976,16 +1549,16 @@ function buildLabels(){
     .filter(m=>floorFilter==='all' || m.floor===floorFilter)
     .sort((a,b)=>a.no-b.no);
   const scopeLabel = (buildingFilter!=='all' || floorFilter!=='all')
-    ? `（絞り込み中：${buildingFilter==='all'?'全棟':buildingFilter} / ${floorFilter==='all'?'全フロア':floorFilter}）` : '';
+    ? t('scopeFmt',{b: buildingFilter==='all'?t('allBuildings'):buildingFilter, f: floorFilter==='all'?t('allFloors'):floorFilter}) : '';
 
   const panel = el(`<div class="panel">
-    <h2 class="no-print">掲示・印刷</h2>
-    <p class="desc no-print">全${scoped.length}室分${scopeLabel}。上部の棟・フロアの絞り込みで印刷範囲を変えられます。</p>
+    <h2 class="no-print">${t('labelsTitle')}</h2>
+    <p class="desc no-print">${t('labelsDescFmt',{n:scoped.length, scope:scopeLabel})}</p>
     <div class="sheet-toggle no-print">
-      <button data-m="sheet" class="${printMode==='sheet'?'active':''}">掲示用チェックシート（A4・1室1枚）</button>
-      <button data-m="label" class="${printMode==='label'?'active':''}">QRラベル（小・シール用）</button>
+      <button data-m="sheet" class="${printMode==='sheet'?'active':''}">${t('sheetModeBtn')}</button>
+      <button data-m="label" class="${printMode==='label'?'active':''}">${t('labelModeBtn')}</button>
     </div>
-    <button class="panel-btn no-print" onclick="window.print()">🖨 印刷する</button>
+    <button class="panel-btn no-print" onclick="window.print()">${t('printBtn')}</button>
     <div id="printArea" style="margin-top:16px;"></div>
   </div>`);
   panel.querySelectorAll('.sheet-toggle button').forEach(b=>{
@@ -1007,42 +1580,79 @@ function buildLabels(){
       });
     }, 30);
   } else {
-    scoped.forEach(m=>{
-      const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
-      const rowsHtml = ITEMS.map((name, idx)=>{
+    // 42項目・22工程を1列で並べると縦に長すぎるため、工程（ひとかたまり）の
+    // 区切りを保ったまま、件数がなるべく均等になる位置で左右2列に分割する。
+    const groupCounts = GROUP_NOS.map(g => ITEMS.filter(it=>it.g===g).length);
+    const totalCount = groupCounts.reduce((a,b)=>a+b,0);
+    let running = 0, splitAt = GROUP_NOS.length;
+    for(let i=0;i<GROUP_NOS.length;i++){
+      running += groupCounts[i];
+      if(running >= totalCount/2){ splitAt = i+1; break; }
+    }
+    const leftGroups = new Set(GROUP_NOS.slice(0, splitAt));
+    const rightGroups = new Set(GROUP_NOS.slice(splitAt));
+
+    function columnRowsHtml(room, groupSet){
+      let lastGroupP = null;
+      let html = '';
+      ITEMS.forEach((meta, idx)=>{
+        if(!groupSet.has(meta.g)) return;
         const it = room.items[idx] || {};
         const vendorCell = it.vd ? `${it.vd}<br>${it.vn||''}` : '';
         const staffCell = it.sd ? `${it.sd}<br>${it.sn||''}` : '';
-        return `<tr>
-          <td class="name">${idx+1}. ${name}</td>
+        let groupRow = '';
+        if(meta.g !== lastGroupP){
+          lastGroupP = meta.g;
+          groupRow = `<tr><td colspan="3" class="grouprow">${t('groupLabelFmt',{g:meta.g})}</td></tr>`;
+        }
+        const tradeColor = meta.trade==='equip' ? '#1a4fa0' : (meta.trade==='elec' ? '#a3241d' : 'inherit');
+        html += `${groupRow}<tr>
+          <td class="name" style="color:${tradeColor};">${meta.s}. ${itemName(idx)}</td>
           <td class="${it.vd?'':'blank'}">${vendorCell}</td>
           <td class="${it.sd?'':'blank'}">${staffCell}</td>
         </tr>`;
-      }).join('');
+      });
+      return html;
+    }
+    function columnTableHtml(room, groupSet){
+      return `<table class="sheet-table">
+        <thead><tr><th style="width:44%;">${t('sheetColItem')}</th><th>${t('sheetColVendor')}</th><th>${t('sheetColStaff')}</th></tr></thead>
+        <tbody>${columnRowsHtml(room, groupSet)}</tbody>
+      </table>`;
+    }
+
+    scoped.forEach(m=>{
+      const room = ROOMS[m.no] || {plan:m.plan, color:m.color, opt:m.opt, items: emptyItems()};
       const page = el(`<div class="sheet-page">
         <div class="sheet-top">
           <div>
-            <div class="sheet-titlewrap"><span class="sheet-no">${m.no}</span><span class="sheet-sub">号室 ／ ${m.building||''}${m.floor}</span></div>
+            <div class="sheet-titlewrap"><span class="sheet-no">${m.no}</span><span class="sheet-sub">${t('roomSuffixFmt',{loc:(m.building||'')+m.floor})}</span></div>
           </div>
-          <div class="sheet-qrwrap"><div id="sheetqr-${m.no}"></div><div class="cap">スキャンでWEB版へ</div></div>
+          <div class="sheet-qrwrap"><div id="sheetqr-${m.no}"></div><div class="cap">${t('scanCaption')}</div></div>
         </div>
         <div class="sheet-info">
-          <span><b>メニュープラン</b>${escapeHtml(room.plan)}</span>
-          <span><b>カラーセレクト</b><span style="background:${colorTypeBg(room.color)};padding:1px 7px;border-radius:4px;">${escapeHtml(room.color)}</span></span>
-          <span><b>オプション</b>${escapeHtml(room.opt)||'－'}</span>
+          <span><b>${t('fieldPlan')}</b>${escapeHtml(room.plan)}</span>
+          <span><b>${t('fieldColor')}</b><span style="background:${colorTypeBg(room.color)};padding:1px 7px;border-radius:4px;">${escapeHtml(room.color)}</span></span>
+          <span><b>${t('fieldOpt')}</b>${escapeHtml(room.opt)||'－'}</span>
         </div>
-        <table class="sheet-table">
-          <thead><tr><th style="width:38%;">確認事項</th><th>業者確認（日付／確認者）</th><th>職員確認（日付／確認者）</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-        <div class="sheet-foot"><span>${SITE.name}</span><span>印刷日：${todayStr()}</span></div>
+        <div class="sheet-legend">
+          <span class="lbl">${t('tradeLegendTitle')}：</span>
+          <span><span class="dot" style="background:#20242c;"></span>${t('tradeBuild')}</span>
+          <span><span class="dot" style="background:#1a4fa0;"></span>${t('tradeEquip')}</span>
+          <span><span class="dot" style="background:#a3241d;"></span>${t('tradeElec')}</span>
+        </div>
+        <div class="sheet-cols">
+          <div class="sheet-col">${columnTableHtml(room, leftGroups)}</div>
+          <div class="sheet-col">${columnTableHtml(room, rightGroups)}</div>
+        </div>
+        <div class="sheet-foot"><span>${SITE.name}</span><span>${t('printDateFmt',{d:todayStr()})}</span></div>
       </div>`);
       area.appendChild(page);
     });
     setTimeout(()=>{
       scoped.forEach(m=>{
         const box = document.getElementById('sheetqr-'+m.no);
-        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:128, height:128});
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:64, height:64});
       });
     }, 30);
   }
@@ -1050,18 +1660,89 @@ function buildLabels(){
 }
 
 /* =========================================================
+   レンダリング — 操作履歴（監査ログ）
+   ========================================================= */
+function buildHistory(){
+  const holder = document.createElement('div');
+  const panel = el(`<div class="panel">
+    <h2>${t('historyTitle')}</h2>
+    <p class="desc">${t('historyDesc')}</p>
+    <button class="panel-btn orange" id="btnExportLogs">${t('exportLogsBtn')}</button>
+    <div id="historyList" style="margin-top:16px;"></div>
+  </div>`);
+  holder.appendChild(panel);
+
+  panel.querySelector('#btnExportLogs').onclick = exportLogsCsv;
+
+  const listBox = panel.querySelector('#historyList');
+  listBox.innerHTML = `<div style="color:var(--ink-soft);font-size:13px;">${t('loadingLabel')}</div>`;
+  fetchLogs(300).then(logs=>{
+    if(!logs.length){ listBox.innerHTML = `<div style="color:var(--ink-soft);font-size:13px;">${t('noHistoryLabel')}</div>`; return; }
+    listBox.innerHTML='';
+    logs.forEach(l=>{
+      const kindLabel = l.kind==='staff' ? t('labelStaffConfirm') : t('labelVendorConfirm');
+      const actionLabel = l.action==='set' ? t('actionSet') : t('actionUnset');
+      const color = l.action==='set' ? 'var(--green)' : 'var(--red)';
+      const d = new Date(l.ts);
+      const dateStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const displayItem = (l.idx!=null && l.schema===ITEMS_SCHEMA_VERSION) ? itemName(l.idx) : (l.item||'');
+      const row = el(`<div style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;gap:10px;align-items:center;">
+        <div>
+          <div>${t('historyRoomLineFmt',{no:`<b>${l.no}</b>`, item:escapeHtml(displayItem), kind:kindLabel})}</div>
+          <div style="color:var(--ink-soft);font-size:11.5px;">${escapeHtml(l.actor||'')} ／ ${dateStr}${l.prevValue?t('historyPrevValueFmt',{val:escapeHtml(l.prevValue)}):''}</div>
+        </div>
+        <div style="color:${color};font-weight:700;white-space:nowrap;">${actionLabel}</div>
+      </div>`);
+      listBox.appendChild(row);
+    });
+  });
+
+  return holder;
+}
+
+async function exportLogsCsv(){
+  const logs = await fetchLogs(5000);
+  const rows = [t('csvLogHeads')];
+  logs.forEach(l=>{
+    const d = new Date(l.ts);
+    const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const displayItem = (l.idx!=null && l.schema===ITEMS_SCHEMA_VERSION) ? itemName(l.idx) : (l.item||'');
+    rows.push([dateStr, l.no, displayItem, l.kind==='staff'?t('labelStaffConfirm'):t('labelVendorConfirm'), l.action==='set'?t('actionSet'):t('actionUnset'), l.actor||'', l.prevValue||'']);
+  });
+  const csv = Papa.unparse(rows);
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `操作履歴_${SITE.name}_${todayStr().replace('/','-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(t('logsExportedToast'));
+}
+
+/* =========================================================
    下部ナビ
    ========================================================= */
 function buildFabNav(){
   const nav = el(`<div class="fab-nav no-print">
-    <button data-v="dashboard">一覧</button>
-    <button data-v="import">取込</button>
-    <button data-v="labels">掲示・印刷</button>
-    <button data-v="settings">設定</button>
+    <button data-v="dashboard">${t('navList')}</button>
+    <button data-v="history">${t('navHistory')}</button>
+    <button data-v="import">${t('navImport')}</button>
+    <button data-v="labels">${t('navLabels')}</button>
+    <button data-v="settings">${t('navSettings')}</button>
   </div>`);
   nav.querySelectorAll('button').forEach(b=>{
     if(b.dataset.v===route.view || (b.dataset.v==='dashboard' && route.view==='room')) b.classList.add('active');
-    b.onclick = ()=>go(b.dataset.v);
+    b.onclick = async ()=>{
+      const v = b.dataset.v;
+      if(ADMIN_ONLY_VIEWS.includes(v) && !isAdmin()){
+        const authed = await openLoginModal(t('adminOnlyScreenPrompt'));
+        if(!authed || !authed.admin){ if(authed) showToast(t('needAdminPermToast')); return; }
+      } else if(STAFF_ONLY_VIEWS.includes(v) && !getAuthed()){
+        const authed = await openLoginModal(t('staffOnlyScreenPrompt'));
+        if(!authed) return;
+      }
+      go(v);
+    };
   });
   return nav;
 }
@@ -1070,7 +1751,8 @@ function buildFabNav(){
    起動
    ========================================================= */
 (async function init(){
-  document.getElementById('app').innerHTML = '<div class="empty-state">読み込み中...</div>';
+  document.documentElement.lang = LANG;
+  document.getElementById('app').innerHTML = `<div class="empty-state">${t('loadingLabel')}</div>`;
   await loadAll();
   route = parseHash();
   render();
