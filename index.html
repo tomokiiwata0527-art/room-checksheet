@@ -273,6 +273,9 @@ function t(key, vars){
   return s;
 }
 
+// 管理者の初期PIN（締め出し復旧にも使用）。運用開始後は設定画面で必ず変更すること。
+const DEFAULT_ADMIN_PIN = '1010';
+
 const I18N = {
   ja: {
     appEyebrow: '居室チェックシート・WEB版',
@@ -317,6 +320,8 @@ const I18N = {
     vendorNamePlaceholder: '例：〇〇クロス／山田太郎',
     vendorNameNotSet: '業者名未設定',
     vendorNameSavedToast: 'この端末の業者名を保存しました',
+    pinRecoveredToast: `管理者PINを初期値（${DEFAULT_ADMIN_PIN}）に復旧しました。設定画面で変更してください`,
+    staffRosterSyncedFmt: '職員マスターを更新しました（{n}名）',
     importTitle: '部屋マスタ取り込み',
     importDesc: '現場の全戸分（号室・メニュープラン・カラーセレクト・オプション・棟）を一括で取り込みます。既存のExcel（仕上チェック表）や、CSVをそのまま利用できます。<br>CSV列順：<b>号室, フロア, メニュープラン, カラーセレクト, オプション, 棟</b>（棟は省略可。1行目はヘッダーとして無視されます）',
     dropZoneLabel: '📄 Excel(.xlsx) / CSV ファイルを選択',
@@ -409,6 +414,8 @@ const I18N = {
     vendorNamePlaceholder: '예：〇〇도배／홍길동',
     vendorNameNotSet: '업체명 미설정',
     vendorNameSavedToast: '이 기기의 업체명을 저장했습니다',
+    pinRecoveredToast: `관리자 PIN을 초기값（${DEFAULT_ADMIN_PIN}）으로 복구했습니다. 설정 화면에서 변경하세요`,
+    staffRosterSyncedFmt: '직원 마스터를 업데이트했습니다（{n}명）',
     importTitle: '객실 마스터 불러오기',
     importDesc: '현장의 전체 세대（호실・메뉴 플랜・컬러 선택・옵션・동）를 일괄로 불러옵니다. 기존 Excel（마감 체크표）이나 CSV를 그대로 사용할 수 있습니다.<br>CSV 열 순서：<b>호실, 층, 메뉴 플랜, 컬러 선택, 옵션, 동</b>（동은 생략 가능. 첫 줄은 헤더로 간주되어 무시됩니다）',
     dropZoneLabel: '📄 Excel(.xlsx) / CSV 파일 선택',
@@ -465,7 +472,36 @@ const SEED_ROOMS = [{"no": 301, "floor": "3F", "building": "南棟", "plan": "F1
 
 // SITE.staff は {name, pin, admin} の配列（4桁PIN・管理者フラグ付き）。
 // 旧データ（文字列配列）は loadAll() 内で自動的にこの形式へ移行する。
-const DEFAULT_STAFF = [{name:'岩田', pin:'1010', admin:true}, {name:'椎名', pin:'', admin:false}];
+// 職員マスター（2026-09登録）。adminはtrueの職員のみ設定・取込画面を開ける。
+const DEFAULT_STAFF = [
+  {name:'巣元',   pin:'8225', admin:false},
+  {name:'相蘇',   pin:'8505', admin:false},
+  {name:'南',     pin:'8165', admin:false},
+  {name:'阿部',   pin:'8572', admin:false},
+  {name:'高橋',   pin:'9049', admin:false},
+  {name:'成田',   pin:'8917', admin:false},
+  {name:'佐藤',   pin:'8584', admin:false},
+  {name:'野田',   pin:'9443', admin:false},
+  {name:'遠藤',   pin:'9897', admin:false},
+  {name:'坂田',   pin:'0956', admin:false},
+  {name:'岩田',   pin:'9961', admin:true},
+  {name:'秋元',   pin:'0084', admin:false},
+  {name:'小嶋',   pin:'0677', admin:false},
+  {name:'大波',   pin:'0829', admin:false},
+  {name:'星野',   pin:'0855', admin:false},
+  {name:'宇野',   pin:'0767', admin:false},
+  {name:'小田原', pin:'0774', admin:false},
+  {name:'梅田',   pin:'1410', admin:false},
+  {name:'永田',   pin:'0972', admin:false},
+  {name:'寺田',   pin:'6769', admin:false},
+  {name:'清山',   pin:'1013', admin:false},
+  {name:'榎本',   pin:'1014', admin:false},
+  {name:'上田',   pin:'1650', admin:false},
+  {name:'イ',     pin:'1720', admin:false},
+];
+// 職員マスターのバージョン。上のリストを書き換えたらこの番号を上げると、
+// 次回起動時にFirebase上の既存職員データへ上書き反映される。
+const STAFF_ROSTER_VERSION = 1;
 const DEFAULT_VENDORS = ['クロス業者','フロア業者','設備業者','内装業者'];
 
 let MASTER = [];      // [{no,floor,building,plan,color,opt}]
@@ -498,8 +534,27 @@ function migrateStaffFormat(){
   if(!Array.isArray(SITE.staff) || !SITE.staff.length) return false;
   if(typeof SITE.staff[0] === 'object') return false; // 既に新形式
   const hadOldFormat = SITE.staff.some(s=>typeof s === 'string');
-  SITE.staff = SITE.staff.map((n,i)=>({name:n, pin:'', admin:i===0}));
+  // 先頭の職員を管理者にし、初期PINを付与する。
+  // ここでPINを空にすると「ログインできない→設定画面も開けない」という
+  // 締め出しが起きるため、必ず1人はログイン可能な状態で移行する。
+  SITE.staff = SITE.staff.map((n,i)=>({name:n, pin: i===0 ? DEFAULT_ADMIN_PIN : '', admin:i===0}));
   return hadOldFormat;
+}
+
+/* 締め出し防止：PINを持つ職員が1人もいない場合、管理者に初期PINを復旧する。
+   （旧バージョンで全員PIN空のまま保存されてしまったデータの救済も兼ねる） */
+function repairStaffPins(){
+  if(!Array.isArray(SITE.staff) || !SITE.staff.length){
+    SITE.staff = DEFAULT_STAFF.slice();
+    return true;
+  }
+  const anyPin = SITE.staff.some(s=>s && typeof s==='object' && (s.pin||'').trim());
+  if(anyPin) return false;
+  let adminIdx = SITE.staff.findIndex(s=>s && s.admin);
+  if(adminIdx < 0) adminIdx = 0;
+  SITE.staff[adminIdx].pin = DEFAULT_ADMIN_PIN;
+  SITE.staff[adminIdx].admin = true;
+  return true;
 }
 
 /* 職員ログイン（名前選択→PIN入力）。成功時はresolve({name,admin})、キャンセル時はresolve(null) */
@@ -751,7 +806,19 @@ async function loadAll(){
 
   const site = await Store.getSite();
   if(site) SITE = site;
-  if(migrateStaffFormat()) await saveSite();
+  const migrated = migrateStaffFormat();
+  // コード側の職員マスターを正とする同期。ROSTER_VERSIONが上がったときだけ
+  // 既存のsite_configを上書きし、以降は設定画面での手編集を尊重する。
+  let rosterSynced = false;
+  if((SITE.staffRosterVersion||0) !== STAFF_ROSTER_VERSION){
+    SITE.staff = DEFAULT_STAFF.map(s=>({...s}));
+    SITE.staffRosterVersion = STAFF_ROSTER_VERSION;
+    rosterSynced = true;
+  }
+  const repaired = repairStaffPins();
+  if(migrated || repaired || rosterSynced) await saveSite();
+  if(rosterSynced) setTimeout(()=>showToast(t('staffRosterSyncedFmt',{n:SITE.staff.length})), 600);
+  else if(repaired) setTimeout(()=>showToast(t('pinRecoveredToast')), 600);
 
   // 2026-08改訂：チェック項目を15項目→23工程・42項目へ全面差し替え。
   // 旧項目とは対応関係がないため、スキーマ番号が古い場合は全室のチェック
