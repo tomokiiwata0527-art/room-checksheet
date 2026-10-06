@@ -158,12 +158,12 @@
   .sheet-page{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
   .sheet-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:6px;}
   .sheet-titlewrap{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
-  .sheet-no{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:700;line-height:1;}
-  .sheet-sub{font-size:14px;color:var(--ink-soft);}
+  .sheet-no{font-family:'Barlow Condensed',sans-serif;font-size:82px;font-weight:700;line-height:1;}
+  .sheet-sub{font-size:24px;color:var(--ink-soft);}
   .sheet-qrwrap{text-align:center;}
   .sheet-qrwrap .cap{font-size:7.5px;color:var(--ink-soft);margin-top:2px;}
-  .sheet-info{display:flex;gap:14px;margin:6px 0 6px;font-size:11px;flex-wrap:wrap;}
-  .sheet-info span b{display:block;font-size:8.5px;color:var(--ink-soft);font-weight:500;}
+  .sheet-info{display:flex;gap:16px;margin:6px 0 6px;font-size:13px;flex-wrap:wrap;}
+  .sheet-info span b{display:block;font-size:9.5px;color:var(--ink-soft);font-weight:500;}
   .sheet-info span{line-height:1.3;}
   .sheet-cols{display:flex;gap:10px;align-items:flex-start;}
   .sheet-col{flex:1;min-width:0;}
@@ -175,9 +175,16 @@
   table.sheet-table td.grouprow{background:#f0efe9;font-weight:700;text-align:left;padding:3.5px 6px;font-size:10.5px;}
   .sheet-foot{display:flex;justify-content:space-between;margin-top:6px;font-size:8.5px;color:var(--ink-soft);}
 
+  /* 用紙サイズと余白をブラウザ任せにせず固定する（既定余白が加算されて
+     2ページ目に溢れるのを防ぐ） */
+  @page{size:A4 portrait;margin:6mm 5mm;}
+
   @media print{
-    .sheet-page{page-break-after:always;border:none;box-shadow:none;border-radius:0;margin:0;padding:6mm 5mm;}
-    .sheet-page:last-child{page-break-after:auto;}
+    .sheet-page{page-break-after:always;break-after:page;border:none;box-shadow:none;border-radius:0;margin:0;padding:0;}
+    .sheet-page:last-child{page-break-after:auto;break-after:auto;}
+    /* 1行が途中で分断されないようにする */
+    table.sheet-table tr{page-break-inside:avoid;break-inside:avoid;}
+    .sheet-cols{break-inside:avoid;}
   }
   .label .no{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
   .label .qr{margin:4px auto;}
@@ -269,7 +276,7 @@ const DEFAULT_ADMIN_PIN = '1010';
 
 // 版数。GitHubを更新したのに画面が変わらない場合、ここの表示が古ければ
 // ブラウザキャッシュが残っている（スーパーリロードで解消する）。
-const APP_VERSION = 'v30-2026.09.20b';
+const APP_VERSION = 'v30-2026.09.20c';
 
 const I18N = {
   ja: {
@@ -1678,7 +1685,7 @@ function buildLabels(){
     }
     function columnTableHtml(room, groupSet){
       return `<table class="sheet-table">
-        <thead><tr><th style="width:48%;">${t('sheetColItem')}</th><th>${t('sheetColVendor')}</th><th>${t('sheetColStaff')}</th></tr></thead>
+        <thead><tr><th style="width:52%;">${t('sheetColItem')}</th><th>${t('sheetColVendor')}</th><th>${t('sheetColStaff')}</th></tr></thead>
         <tbody>${columnRowsHtml(room, groupSet)}</tbody>
       </table>`;
     }
