@@ -269,7 +269,7 @@ const DEFAULT_ADMIN_PIN = '1010';
 
 // 版数。GitHubを更新したのに画面が変わらない場合、ここの表示が古ければ
 // ブラウザキャッシュが残っている（スーパーリロードで解消する）。
-const APP_VERSION = 'v30-2026.09.20';
+const APP_VERSION = 'v30-2026.09.20b';
 
 const I18N = {
   ja: {
@@ -1638,7 +1638,7 @@ function buildLabels(){
     setTimeout(()=>{
       scoped.forEach(m=>{
         const box = document.getElementById('lbl-'+m.no);
-        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:70, height:70});
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:140, height:140});
       });
     }, 30);
   } else {
@@ -1714,7 +1714,7 @@ function buildLabels(){
     setTimeout(()=>{
       scoped.forEach(m=>{
         const box = document.getElementById('sheetqr-'+m.no);
-        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:64, height:64});
+        if(box) new QRCode(box, {text: location.origin+location.pathname+'#/room/'+m.no, width:128, height:128});
       });
     }, 30);
   }
