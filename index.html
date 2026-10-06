@@ -203,41 +203,44 @@
 /* =========================================================
    居室チェック管理 — データモデル
    ========================================================= */
-// 2026年9月改訂版チェック項目（28項目・フラット構成）
+// 2026年9月改訂版チェック項目（30項目・フラット構成）
 // g = 工程番号（1項目1工程。同じgが複数ある場合のみ「ひとかたまり」の見出しを表示）
 // s = 表示番号 ／ trade = 担当区分（build=建築[黒], equip=設備[青], elec=電気[赤]）
-// ※ 2026-09改訂で22工程42項目から全面差し替え。旧チェック記録（vd/vn/sd/sn）は互換性が
-//   ないため ITEMS_SCHEMA_VERSION を上げて起動時に全室分をリセットする。
-const ITEMS_SCHEMA_VERSION = 3;
+// ※ 2026-09改訂で22工程42項目から全面差し替え。その後、先頭に躯体補修・釘切り・錆止めを
+//   追加（全30項目）。項目の増減で保存済みインデックスがずれるため、
+//   ITEMS_SCHEMA_VERSION を上げて起動時に全室分をリセットする。
+const ITEMS_SCHEMA_VERSION = 4;
 const ITEMS = [
-  {g:1,  s:'1',  trade:'build', ja:'墨出',            ko:'먹매김'},
-  {g:2,  s:'2',  trade:'equip', ja:'先行配管(設備)',   ko:'선행배관(설비)'},
-  {g:3,  s:'3',  trade:'elec',  ja:'先行配線(電気)',   ko:'선행배선(전기)'},
-  {g:4,  s:'4',  trade:'build', ja:'ALC',            ko:'ALC'},
-  {g:5,  s:'5',  trade:'build', ja:'AW',             ko:'AW(알루미늄 창호)'},
-  {g:6,  s:'6',  trade:'build', ja:'SD',             ko:'SD(강재 도어)'},
-  {g:7,  s:'7',  trade:'build', ja:'額縁',            ko:'몰딩(액자틀)'},
-  {g:8,  s:'8',  trade:'build', ja:'断熱モルタル',     ko:'단열 모르타르'},
-  {g:9,  s:'9',  trade:'build', ja:'ウレタン',         ko:'우레탄'},
-  {g:10, s:'10', trade:'build', ja:'先行LGS',         ko:'선행 LGS'},
-  {g:11, s:'11', trade:'build', ja:'先行PB',          ko:'선행 PB'},
-  {g:12, s:'12', trade:'build', ja:'UB',             ko:'UB(유닛욕조)'},
-  {g:13, s:'13', trade:'build', ja:'置床',            ko:'이중바닥'},
-  {g:14, s:'14', trade:'build', ja:'墨出し',          ko:'먹매김'},
-  {g:15, s:'15', trade:'build', ja:'LGS',            ko:'LGS'},
-  {g:16, s:'16', trade:'build', ja:'造作',            ko:'목공사'},
-  {g:17, s:'17', trade:'build', ja:'先付家具',         ko:'선행 가구 설치'},
-  {g:18, s:'18', trade:'build', ja:'PB',             ko:'PB(석고보드)'},
-  {g:19, s:'19', trade:'build', ja:'キッチン',         ko:'주방(키친)'},
-  {g:20, s:'20', trade:'build', ja:'クロス',          ko:'도배(벽지)'},
-  {g:21, s:'21', trade:'build', ja:'洗面化粧台',       ko:'세면화장대'},
-  {g:22, s:'22', trade:'build', ja:'玄関タイル',       ko:'현관 타일'},
-  {g:23, s:'23', trade:'build', ja:'フローリング',      ko:'마루(플로어링)'},
-  {g:24, s:'24', trade:'build', ja:'巾木',            ko:'걸레받이'},
-  {g:25, s:'25', trade:'build', ja:'器具付け',         ko:'기구 설치'},
-  {g:26, s:'26', trade:'equip', ja:'器具付け(設備)',   ko:'기구 설치(설비)'},
-  {g:27, s:'27', trade:'elec',  ja:'器具付け(電気)',   ko:'기구 설치(전기)'},
-  {g:28, s:'28', trade:'build', ja:'クリーニング',      ko:'청소(클리닝)'},
+  {g:1,  s:'1',  trade:'build', ja:'躯体補修',          ko:'구체 보수'},
+  {g:2,  s:'2',  trade:'build', ja:'釘切り・錆止め',    ko:'못 절단・녹방지'},
+  {g:3,  s:'3',  trade:'build', ja:'墨出',              ko:'먹매김'},
+  {g:4,  s:'4',  trade:'equip', ja:'先行配管(設備)',  ko:'선행배관(설비)'},
+  {g:5,  s:'5',  trade:'elec',  ja:'先行配線(電気)',  ko:'선행배선(전기)'},
+  {g:6,  s:'6',  trade:'build', ja:'ALC',            ko:'ALC'},
+  {g:7,  s:'7',  trade:'build', ja:'AW',              ko:'AW(알루미늄 창호)'},
+  {g:8,  s:'8',  trade:'build', ja:'SD',              ko:'SD(강재 도어)'},
+  {g:9,  s:'9',  trade:'build', ja:'額縁',              ko:'몰딩(액자틀)'},
+  {g:10, s:'10', trade:'build', ja:'断熱モルタル',      ko:'단열 모르타르'},
+  {g:11, s:'11', trade:'build', ja:'ウレタン',          ko:'우레탄'},
+  {g:12, s:'12', trade:'build', ja:'先行LGS',        ko:'선행 LGS'},
+  {g:13, s:'13', trade:'build', ja:'先行PB',          ko:'선행 PB'},
+  {g:14, s:'14', trade:'build', ja:'UB',              ko:'UB(유닛욕조)'},
+  {g:15, s:'15', trade:'build', ja:'置床',              ko:'이중바닥'},
+  {g:16, s:'16', trade:'build', ja:'墨出し',            ko:'먹매김'},
+  {g:17, s:'17', trade:'build', ja:'LGS',            ko:'LGS'},
+  {g:18, s:'18', trade:'build', ja:'造作',              ko:'목공사'},
+  {g:19, s:'19', trade:'build', ja:'先付家具',          ko:'선행 가구 설치'},
+  {g:20, s:'20', trade:'build', ja:'PB',              ko:'PB(석고보드)'},
+  {g:21, s:'21', trade:'build', ja:'キッチン',          ko:'주방(키친)'},
+  {g:22, s:'22', trade:'build', ja:'クロス',            ko:'도배(벽지)'},
+  {g:23, s:'23', trade:'build', ja:'洗面化粧台',        ko:'세면화장대'},
+  {g:24, s:'24', trade:'build', ja:'玄関タイル',        ko:'현관 타일'},
+  {g:25, s:'25', trade:'build', ja:'フローリング',      ko:'마루(플로어링)'},
+  {g:26, s:'26', trade:'build', ja:'巾木',              ko:'걸레받이'},
+  {g:27, s:'27', trade:'build', ja:'器具付け',          ko:'기구 설치'},
+  {g:28, s:'28', trade:'equip', ja:'器具付け(設備)',  ko:'기구 설치(설비)'},
+  {g:29, s:'29', trade:'elec',  ja:'器具付け(電気)',  ko:'기구 설치(전기)'},
+  {g:30, s:'30', trade:'build', ja:'クリーニング',      ko:'청소(클리닝)'},
 ];
 // 1項目1工程のときは工程見出しが冗長なので表示しない
 const SHOW_GROUP_HEADERS = (new Set(ITEMS.map(i=>i.g)).size !== ITEMS.length);
@@ -263,6 +266,10 @@ function t(key, vars){
 
 // 管理者の初期PIN（締め出し復旧にも使用）。運用開始後は設定画面で必ず変更すること。
 const DEFAULT_ADMIN_PIN = '1010';
+
+// 版数。GitHubを更新したのに画面が変わらない場合、ここの表示が古ければ
+// ブラウザキャッシュが残っている（スーパーリロードで解消する）。
+const APP_VERSION = 'v30-2026.09.20';
 
 const I18N = {
   ja: {
@@ -1608,7 +1615,7 @@ function buildLabels(){
 
   const panel = el(`<div class="panel">
     <h2 class="no-print">${t('labelsTitle')}</h2>
-    <p class="desc no-print">${t('labelsDescFmt',{n:scoped.length, scope:scopeLabel})}</p>
+    <p class="desc no-print">${t('labelsDescFmt',{n:scoped.length, scope:scopeLabel})}<br><span style="font-size:11px;color:var(--ink-soft);">${APP_VERSION}　/　${ITEMS.length}項目</span></p>
     <div class="sheet-toggle no-print">
       <button data-m="sheet" class="${printMode==='sheet'?'active':''}">${t('sheetModeBtn')}</button>
       <button data-m="label" class="${printMode==='label'?'active':''}">${t('labelModeBtn')}</button>
@@ -1700,7 +1707,7 @@ function buildLabels(){
           <div class="sheet-col">${columnTableHtml(room, leftGroups)}</div>
           <div class="sheet-col">${columnTableHtml(room, rightGroups)}</div>
         </div>
-        <div class="sheet-foot"><span>${SITE.name}</span><span>${t('printDateFmt',{d:todayStr()})}</span></div>
+        <div class="sheet-foot"><span>${SITE.name}</span><span>${t('printDateFmt',{d:todayStr()})}　${APP_VERSION}</span></div>
       </div>`);
       area.appendChild(page);
     });
